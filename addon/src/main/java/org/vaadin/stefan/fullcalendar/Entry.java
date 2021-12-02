@@ -16,6 +16,8 @@
  */
 package org.vaadin.stefan.fullcalendar;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import elemental.json.Json;
 import elemental.json.JsonObject;
 import lombok.*;
