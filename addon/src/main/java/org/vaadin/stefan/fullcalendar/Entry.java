@@ -16,8 +16,7 @@
  */
 package org.vaadin.stefan.fullcalendar;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.*;
 import elemental.json.Json;
 import elemental.json.JsonObject;
 import lombok.*;
@@ -43,21 +42,25 @@ public class Entry {
     /**
      * The entry's id.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private final String id;
 
     /**
      * The entry's title. This title will be shown on the client side.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String title;
 
     /**
      * The entry's start as UTC.
      */
+    @JsonIgnore()
     private Instant start;
 
     /**
      * The entry's end as UTC.
      */
+    @JsonIgnore()
     private Instant end;
 
     /**
@@ -70,14 +73,16 @@ public class Entry {
     /**
      * Determines which HTML classNames will be attached to the rendered event.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Set<String> classNames;
-    
+
     /**
      * Indicates if this entry is editable by the users. This value
      * is passed to the client side and interpreted there, but can also be used for server side checks.
      * <br><br>
      * This value has no impact on the resource API of this class.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private boolean editable;
 
     /**
@@ -86,6 +91,7 @@ public class Entry {
      * <br><br>
      * This value has no impact on the resource API of this class.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private boolean startEditable;
 
     /**
@@ -94,11 +100,13 @@ public class Entry {
      * <br><br>
      * This value has no impact on the resource API of this class.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private boolean durationEditable;
 
     /**
      * The color of this entry.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String color;
 
     /**
@@ -108,17 +116,20 @@ public class Entry {
      * displayed in the entry's space. You can use it for custom entry rendering
      * (see {@link FullCalendar#setEntryContentCallback(String)}.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String description;
 
     /**
      * The custom property list
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Map<String, Object> customProperties;
 
     /**
      * The rendering mode of this entry. Never null
      */
     @NonNull
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private RenderingMode renderingMode = RenderingMode.NONE;
 
     /**
@@ -126,39 +137,46 @@ public class Entry {
      * might be stored in the entry independently to this flag (server side only information).
      * Does <b>not</b> remove any recurring information, when set to false.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private boolean recurring;
 
     /**
      * Returns the days of weeks on which this event should recur. Null or empty when
      * no recurring is defined.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Set<DayOfWeek> recurringDaysOfWeeks;
 
     /**
      * The start date of recurrence. When not defined, recurrence will extend infinitely to the past (when the entry
      * is recurring).
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Instant recurringStartDate;
 
     /**
      * The start time of recurrence. When not defined, the event will appear as an all day event.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private LocalTime recurringStartTime;
 
     /**
      * The end date of recurrence. When not defined, recurrence will extend infinitely to the past (when the entry
      * is recurring).
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Instant recurringEndDate;
 
     /**
      * The start time of recurrence. Passing null on a recurring entry will make it appear as an all day event.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private LocalTime recurringEndTime;
 
     /**
      * Events that share a groupId will be dragged and resized together automatically.
      */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String groupId;
 
     /**
@@ -166,6 +184,7 @@ public class Entry {
      */
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.PROTECTED)
+    @JsonIgnore
     private FullCalendar calendar;
 
     /**
@@ -271,6 +290,7 @@ public class Entry {
      *
      * @return start
      */
+    @JsonGetter("start")
     public Instant getStartUTC() {
         return start;
     }
@@ -281,6 +301,7 @@ public class Entry {
      *
      * @return start as local date time
      */
+    @JsonIgnore
     public LocalDateTime getStart() {
         return getStart(getStartTimezone());
     }
@@ -321,6 +342,7 @@ public class Entry {
      *
      * @return start
      */
+    @JsonGetter("end")
     public Instant getEndUTC() {
         return end;
     }
@@ -331,6 +353,7 @@ public class Entry {
      *
      * @return start as local date time
      */
+    @JsonIgnore
     public LocalDateTime getEnd() {
         return getEnd(getEndTimezone());
     }
@@ -361,6 +384,7 @@ public class Entry {
      * @return start as local date time
      * @throws NullPointerException when null is passed
      */
+    @JsonIgnore
     public LocalDateTime getEnd(@NotNull Timezone timezone) {
         Objects.requireNonNull(timezone, "timezone");
         return end != null ? LocalDateTime.ofInstant(end, timezone.getZoneId().getRules().getOffset(end)) : null;
@@ -410,7 +434,6 @@ public class Entry {
      *
      * @param key   the name of the property to set
      * @param value value to set
-     *
      */
     public void setCustomProperty(@NotNull String key, Object value) {
         if (customProperties == null) {
@@ -449,6 +472,7 @@ public class Entry {
      *
      * @return timezone
      */
+    @JsonIgnore()
     public Timezone getStartTimezone() {
         return calendar != null ? calendar.getTimezone() : Timezone.UTC;
     }
@@ -458,6 +482,7 @@ public class Entry {
      *
      * @return timezone
      */
+    @JsonIgnore()
     public Timezone getEndTimezone() {
         return calendar != null ? calendar.getTimezone() : Timezone.UTC;
     }
@@ -468,6 +493,7 @@ public class Entry {
      *
      * @return start date of recurrence
      */
+    @JsonGetter("recurringStartDate")
     public Instant getRecurringStartDateUTC() {
         return recurringStartDate;
     }
@@ -482,6 +508,7 @@ public class Entry {
      * @return start date of recurrence
      * @throws NullPointerException when null is passed
      */
+    @JsonIgnore
     public LocalDate getRecurringStartDate(@NotNull Timezone timezone) {
         Objects.requireNonNull(timezone, "timezone");
         return recurringStartDate != null ? LocalDateTime.ofInstant(recurringStartDate, timezone.getZoneId().getRules().getOffset(recurringStartDate)).toLocalDate() : null;
@@ -509,6 +536,7 @@ public class Entry {
      *
      * @return end date of recurrence
      */
+    @JsonGetter("recurringEndDate")
     public Instant getRecurringEndDateUTC() {
         return recurringEndDate;
     }
@@ -523,6 +551,7 @@ public class Entry {
      * @return end date of recurrence
      * @throws NullPointerException when null is passed
      */
+    @JsonIgnore
     public LocalDate getRecurringEndDate(@NotNull Timezone timezone) {
         Objects.requireNonNull(timezone, "timezone");
         return recurringEndDate != null ? LocalDateTime.ofInstant(recurringEndDate, timezone.getZoneId().getRules().getOffset(recurringEndDate)).toLocalDate() : null;
@@ -547,36 +576,37 @@ public class Entry {
 
     /**
      * Returns an unmodifiable map of the custom properties of this instance.
+     *
      * @return Map
      */
     public Map<String, Object> getCustomProperties() {
         return customProperties != null ? Collections.unmodifiableMap(customProperties) : Collections.emptyMap();
     }
-    
+
     /**
      * Assign an additional className to this entry. Already assigned classNames will be kept.
      *
-     * @param String className
+     * @param  className className
      * @throws NullPointerException when null is passed
      */
     public void assignClassName(String className) {
-    	assignClassNames(Objects.requireNonNull(className));
+        assignClassNames(Objects.requireNonNull(className));
     }
-    
+
     /**
      * Assign additional classNames to this entry. Already assigned classNames will be kept.
      *
-     * @param String className
+     * @param  classNames classNames
      * @throws NullPointerException when null is passed
      */
     public void assignClassNames(@NotNull String... classNames) {
-    	assignClassNames(Arrays.asList(classNames));
+        assignClassNames(Arrays.asList(classNames));
     }
-    
+
     /**
      * Assign additional classNames to this entry. Already assigned classNames will be kept.
      *
-     * @param String classNames
+     * @param  classNames classNames
      * @throws NullPointerException when null is passed
      */
     public void assignClassNames(@NotNull Collection<String> classNames) {
@@ -587,38 +617,38 @@ public class Entry {
             this.classNames.addAll(classNames);
         }
     }
-    
+
     /**
      * Unassigns the given className from this entry.
      *
-     * @param String className
+     * @param  className className
      * @throws NullPointerException when null is passed
      */
     public void unassignClassName(String className) {
-    	unassignClassNames(Objects.requireNonNull(className));
-    }
-    
-    /**
-     * Unassigns the given classNames from this entry.
-     *
-     * @param String classNames
-     * @throws NullPointerException when null is passed
-     */
-    public void unassignClassNames(@NotNull String... classNames) {
-    	unassignClassNames(Arrays.asList(classNames));
+        unassignClassNames(Objects.requireNonNull(className));
     }
 
     /**
      * Unassigns the given classNames from this entry.
      *
-     * @param String classNames
+     * @param  classNames classNames
+     * @throws NullPointerException when null is passed
+     */
+    public void unassignClassNames(@NotNull String... classNames) {
+        unassignClassNames(Arrays.asList(classNames));
+    }
+
+    /**
+     * Unassigns the given classNames from this entry.
+     *
+     * @param  classNames classNames
      * @throws NullPointerException when null is passed
      */
     public void unassignClassNames(@NotNull Collection<String> classNames) {
         if (this.classNames != null)
             this.classNames.removeAll(classNames);
     }
-    
+
     /**
      * Unassigns all classNames from this entry.
      */
@@ -628,31 +658,33 @@ public class Entry {
             this.classNames = null;
         }
     }
-    
+
     /**
      * Returns an unmodifiable set of the class names of this instance.
+     *
      * @return Set
      */
     public Set<String> getClassNames() {
-    	return classNames != null ? Collections.unmodifiableSet(classNames) : Collections.emptySet();
+        return classNames != null ? Collections.unmodifiableSet(classNames) : Collections.emptySet();
     }
-    
+
     /**
      * Returns the amount of assigned classNames.
      *
      * @return int size of classNames
      */
+    @JsonIgnore
     public int getClassNamesSize() {
         return classNames != null ? classNames.size() : 0;
     }
-    
+
     /**
      * Returns, if the entry has any class name assigned.
      *
      * @return Boolean hasClassNames
      */
     public boolean hasClassNames() {
-    	return classNames != null && !classNames.isEmpty();
+        return classNames != null && !classNames.isEmpty();
     }
 
     /**
