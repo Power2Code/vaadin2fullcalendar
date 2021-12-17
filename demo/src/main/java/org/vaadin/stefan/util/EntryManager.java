@@ -20,10 +20,9 @@ public class EntryManager {
         LocalDate now = LocalDate.now();
 
         ResourceEntry recurring = new ResourceEntry();
-        recurring.setRecurring(true);
         recurring.setTitle(now.getYear() + "'s sunday event");
         recurring.setColor("lightgray");
-        recurring.setRecurringDaysOfWeeks(Collections.singleton(DayOfWeek.SUNDAY));
+        recurring.setRecurringDaysOfWeek(Collections.singleton(DayOfWeek.SUNDAY));
 
         recurring.setRecurringStartDate(now.with(TemporalAdjusters.firstDayOfYear()), calendar.getTimezoneClient());
         recurring.setRecurringEndDate(now.with(TemporalAdjusters.lastDayOfYear()), calendar.getTimezoneClient());
@@ -104,7 +103,7 @@ public class EntryManager {
 	static void setValues(FullCalendar calendar, Entry entry, String title, LocalDateTime start, int amountToAdd, ChronoUnit unit, String color) {
         entry.setTitle(title);
         entry.setStart(start);
-        entry.setEnd(entry.getStartUTC().plus(amountToAdd, unit));
+        entry.setEndUTC(entry.getStartUTC().plus(amountToAdd, unit));
         entry.setAllDay(unit == ChronoUnit.DAYS);
         entry.setColor(color);
     }
@@ -112,16 +111,16 @@ public class EntryManager {
 	static void setValues(FullCalendar calendar, ResourceEntry entry, String title, LocalDateTime start, int amountToAdd, ChronoUnit unit, String color) {
         entry.setTitle(title);
         entry.setStart(start);
-        entry.setEnd(entry.getStartUTC().plus(amountToAdd, unit));
+        entry.setEndUTC(entry.getStartUTC().plus(amountToAdd, unit));
         entry.setAllDay(unit == ChronoUnit.DAYS);
         entry.setColor(color);
-        entry.setDescription("Description of " + title);
+        entry.setCustomProperty("description", "Description of " + title);
     }
     
     static void setValues(FullCalendar calendar, ResourceEntry entry, String title, LocalDateTime start, int amountToAdd, ChronoUnit unit, String color, HashMap<String, Object> extendedProps) {
         entry.setTitle(title);
         entry.setStart(start);
-        entry.setEnd(entry.getStartUTC().plus(amountToAdd, unit));
+        entry.setEndUTC(entry.getStartUTC().plus(amountToAdd, unit));
         entry.setAllDay(unit == ChronoUnit.DAYS);
         entry.setColor(color);
         entry.setCustomProperties(extendedProps);
@@ -130,7 +129,7 @@ public class EntryManager {
     static void setValues(FullCalendar calendar, ResourceEntry entry, LocalDateTime start, int amountToAdd, ChronoUnit unit, String color) {
     	entry.setTitle("");
         entry.setStart(start);
-        entry.setEnd(entry.getStartUTC().plus(amountToAdd, unit));
+        entry.setEndUTC(entry.getStartUTC().plus(amountToAdd, unit));
         entry.setAllDay(unit == ChronoUnit.DAYS);
         entry.setColor(color);
     }

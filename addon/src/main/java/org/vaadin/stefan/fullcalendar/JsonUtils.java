@@ -16,20 +16,13 @@
  */
 package org.vaadin.stefan.fullcalendar;
 
+import com.vaadin.flow.function.SerializableFunction;
 import elemental.json.*;
 
 import javax.validation.constraints.NotNull;
 import java.time.*;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -37,6 +30,7 @@ import java.util.stream.Stream;
  * JsonUtils used for internally handling conversion of objects sent to or received from the client side.
  */
 public final class JsonUtils {
+
     private JsonUtils() {
         // noop
     }
@@ -44,10 +38,22 @@ public final class JsonUtils {
     /**
      * Converts the given object to a json value. Can be null.
      *
-     * @param value value
+     * @param value                   value
      * @return object
      */
     public static JsonValue toJsonValue(Object value) {
+        return toJsonValue(value, null);
+    }
+
+    /**
+     * Converts the given object to a json value. Can be null. The given custom converter is applied, when
+     * there is no default conversion found for the given value. Can be null to convert it to a simple string.
+     *
+     * @param value                   value
+     * @return object
+     */
+    @SuppressWarnings("unchecked")
+    public static JsonValue toJsonValue(Object value, SerializableFunction<Object, JsonValue> customConverter) {
         if (value instanceof JsonValue) {
             return (JsonValue) value;
         }
@@ -67,7 +73,7 @@ public final class JsonUtils {
         }
 
         if (value instanceof Iterator<?>) {
-            Iterator<?> iterator = (Iterator) value;
+            Iterator<?> iterator = (Iterator<?>) value;
             JsonArray array = Json.createArray();
             int i = 0;
             while (iterator.hasNext()) {
@@ -75,15 +81,13 @@ public final class JsonUtils {
             }
             return array;
         }
-        
-        if (value instanceof HashMap<?, ?>) {
-        	HashMap<String, Object> hashmap = (HashMap<String, Object>) value;
-        	JsonObject jsonObject = Json.createObject();
 
-        	for (Map.Entry<String, Object> prop : hashmap.entrySet()) {
-            	jsonObject.put(prop.getKey(), JsonUtils.toJsonValue(prop.getValue()));
+        if (value instanceof Map<?, ?>) {
+            Map<String, Object> map = (Map<String, Object>) value;
+            JsonObject jsonObject = Json.createObject();
+            for (Map.Entry<String, Object> prop : map.entrySet()) {
+                jsonObject.put(prop.getKey(), JsonUtils.toJsonValue(prop.getValue()));
             }
-
             return jsonObject;
         }
 
@@ -92,14 +96,197 @@ public final class JsonUtils {
         }
 
         if (value instanceof Iterable<?>) {
-            return toJsonValue(((Iterable) value).iterator());
+            return toJsonValue(((Iterable<?>) value).iterator());
         }
 
         if (value instanceof Stream<?>) {
-            return toJsonValue(((Stream) value).iterator());
+            return toJsonValue(((Stream<?>) value).iterator());
         }
 
-        return Json.create(String.valueOf(value));
+        return customConverter != null ? customConverter.apply(value) : Json.create(String.valueOf(value));
+    }
+
+    /**
+     * Returns true, if this value would be converted to a json array (or iterable like) for the client, like
+     * any Java iterable, stream, array, map or iterator.
+     * @param value value
+     * @return value
+     */
+    public static boolean isCollectable(Object value) {
+        return value instanceof Iterator<?>
+                || value instanceof Map<?, ?>
+                || value instanceof Object[]
+                || value instanceof Iterable<?>
+                || value instanceof Stream<?>;
+    }
+
+    /**
+     * Parses a date time string sent from the client side. This string may apply to ZonedDateTime, Instant, LocalDate
+     * or LocalDateTime default parsers. The resulting temporal will be UTC based.
+     * <br><br>
+     * If no timezone is passed but is needed, the method will use the system's timezone.
+     *
+     * @param dateTimeString date time string
+     * @param timezone       timezone
+     * @return UTC based date time instance
+     * @throws NullPointerException when null is passed for not null parameters
+     */
+    public static Instant parseDateTimeString(@NotNull String dateTimeString, Timezone timezone) {
+        Objects.requireNonNull(dateTimeString, "dateTimeString");
+        Instant dateTime;
+
+        try {
+            ZonedDateTime parse = ZonedDateTime.parse(dateTimeString);
+            dateTime = parse.toInstant();
+        } catch (DateTimeParseException e) {
+            try {
+                dateTime = Instant.parse(dateTimeString);
+            } catch (DateTimeParseException e1) {
+                if (timezone == null) {
+                    timezone = Timezone.getSystem();
+                }
+
+                try {
+                    dateTime = timezone.convertToUTC(LocalDateTime.parse(dateTimeString));
+                } catch (DateTimeException e2) {
+                    dateTime = timezone.convertToUTC(LocalDate.parse(dateTimeString));
+                }
+            }
+        }
+        return dateTime;
+    }
+
+    /**
+     * Shortcut method for {@link #ofJsonValue(JsonValue, SerializableFunction, Collection, Class)}. Reads a json value object and
+     * tries to parse it to a Java object.
+     * <p></p>
+     * Most basic types are automatically converted. Since Json objects represent a more complex structure, the
+     * given callback can be used to convert them to their Java representation. This method converts them automatically
+     * into a Map, using {@link #convertObjectToMap(JsonObject, Class)}.
+     * <p></p>
+     * Json arrays are automatically converted into a Java {@link ArrayList}.
+     *
+     * @param jsonValue value to parse
+     * @param <T>       return type
+     * @return parsed / converted value
+     * @see #ofJsonValue(JsonValue, Class)
+     * @see #ofJsonValue(JsonValue, SerializableFunction, Collection, Class)
+     */
+    public static <T> T ofJsonValue(JsonValue jsonValue) {
+        return ofJsonValue(jsonValue, o -> convertObjectToMap(checkForObjectOrThrow(o), ArrayList.class), null, ArrayList.class);
+    }
+
+    /**
+     * Shortcut method for {@link #ofJsonValue(JsonValue, SerializableFunction, Collection, Class)}. Reads a json value object and
+     * tries to parse it to a Java object.
+     * <p></p>
+     * Most basic types are automatically converted. Since Json objects represent a more complex structure, the
+     * given callback can be used to convert them to their Java representation. This method converts them automatically
+     * into a Map, using {@link #convertObjectToMap(JsonObject, Class)}.
+     * <p></p>
+     * Json arrays are converted to the given
+     * collection type, where for each element of the json array, this method is called recursively. Please check,
+     * if the given collection type may lead to eliminated duplicates (e.g. Set)
+     *
+     * @param jsonValue          json value to read
+     * @param convertArrayToType target collection type json arrays shall be converted to.
+     * @param <T>                return type
+     * @return converted Java object
+     * @see #ofJsonValue(JsonValue, SerializableFunction, Collection, Class)
+     * @see #convertObjectToMap(JsonObject, Class)
+     */
+    @SuppressWarnings("rawtypes")
+    public static <T> T ofJsonValue(JsonValue jsonValue, Class<? extends Collection> convertArrayToType) {
+        return ofJsonValue(jsonValue, o -> convertObjectToMap(checkForObjectOrThrow(o), convertArrayToType), null, convertArrayToType);
+    }
+
+    /**
+     * Reads a json value object and tries to parse it to a Java object.
+     * <p></p>
+     * Most basic types are automatically converted. Since Json objects represent a more complex structure, the
+     * given callback can be used to convert them to their Java representation. Please also check
+     * {@link #convertObjectToMap(JsonObject, Class)} for a simple "to Map" converter.
+     * <p></p>
+     * Json arrays are converted to the given
+     * collection type, where for each element of the json array, this method is called recursively. Please check,
+     * if the given collection type may lead to eliminated duplicates (e.g. Set)
+     *
+     * @param jsonValue          json value to read
+     * @param toObjectCallback   callback to convert json objects
+     * @param convertArrayToType target collection type json arrays shall be converted to.
+     * @param <T>                return type
+     * @return converted Java object
+     * @see #convertObjectToMap(JsonObject, Class)
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T ofJsonValue(JsonValue jsonValue,
+                                    SerializableFunction<JsonValue, Object> toObjectCallback,
+                                    Collection<JsonType> toObjectJsonTypes,
+                                    @SuppressWarnings("rawtypes") Class<? extends Collection> convertArrayToType) {
+        if (jsonValue == null) {
+            return null;
+        }
+
+        JsonType type = jsonValue.getType();
+
+        if (type == JsonType.OBJECT) {
+            return (T) toObjectCallback.apply(jsonValue);
+        }
+
+        if (type == JsonType.ARRAY) {
+            try {
+                Collection<?> collection = convertArrayToType.newInstance();
+                JsonArray array = (JsonArray) jsonValue;
+                for (int i = 0; i < array.length(); i++) {
+                    collection.add(JsonUtils.ofJsonValue(array.get(i), toObjectCallback, toObjectJsonTypes, convertArrayToType));
+                }
+                return (T) collection;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        if (toObjectJsonTypes != null && toObjectJsonTypes.contains(type)) {
+            return (T) toObjectCallback.apply(jsonValue);
+        }
+
+        switch (type) {
+            case STRING:
+                return (T) jsonValue.asString();
+            case NUMBER:
+                return (T) (Double) jsonValue.asNumber();
+            case BOOLEAN:
+                return (T) (Boolean) jsonValue.asBoolean();
+            case NULL:
+                return null;
+            default:
+                throw new IllegalStateException("Unexpected value: " + type);
+        }
+    }
+
+    /**
+     * Simple method, that converts a json object to a map. Calls {@link #ofJsonValue(JsonValue, Class)} for each
+     * read value.
+     *
+     * @param object             object to read
+     * @param convertArrayToType target type json arrays shall be converted to
+     * @return map
+     */
+    @SuppressWarnings({"rawtypes"})
+    public static Map<String, Object> convertObjectToMap(JsonObject object, Class<? extends Collection> convertArrayToType) {
+        Map<String, Object> map = new HashMap<>();
+        for (String key : object.keys()) {
+            map.put(key, ofJsonValue(object.get(key), convertArrayToType));
+        }
+        return map;
+    }
+
+    private static JsonObject checkForObjectOrThrow(JsonValue value) {
+        if (!(value instanceof JsonObject)) {
+            throw new IllegalArgumentException("Only JsonObject is supported. Given type is " + (value != null ? value.getType() : " null"));
+        }
+
+        return (JsonObject) value;
     }
 
     /**
@@ -137,12 +324,14 @@ public final class JsonUtils {
     }
 
     /**
-     * Reads the json property by key and tries to apply it as a temporal. Might use the timezone, if conversion to UTC is needed.
+     * Reads the json property by key and tries to apply it as a temporal. Might use the timezone and interprets
+     * it as the source date timezone, if conversion to UTC is needed. This means, if the given string is for instance
+     * a CET date, the given timezone should be CET.
      *
      * @param object   json object
      * @param key      json property key
      * @param setter   setter to apply value
-     * @param timezone timezone
+     * @param timezone source timezone
      * @throws NullPointerException when null is passed for not null parameters
      */
     public static void updateDateTime(@NotNull JsonObject object, @NotNull String key, @NotNull Consumer<Instant> setter, @NotNull Timezone timezone) {
@@ -164,7 +353,9 @@ public final class JsonUtils {
      * @param key    json property key
      * @param setter setter to apply value
      * @throws NullPointerException when null is passed for not null parameters
+     * @deprecated not maintained anymore, will be removed in one of the next versions
      */
+    @Deprecated
     public static void updateSetString(@NotNull JsonObject object, @NotNull String key, @NotNull Consumer<Set<String>> setter) {
         Objects.requireNonNull(object, "JsonObject");
         Objects.requireNonNull(key, "key");
@@ -173,27 +364,7 @@ public final class JsonUtils {
             setter.accept(toSetString(object.get(key)));
         }
     }
-    
-    /**
-     * Convert the JsonArray to Set<String>
-     *
-     * @param array json array
-     * 
-     * @return Set<String> The set
-     */
-    private static Set<String> toSetString(JsonArray array) {
-    	Set<String> set = new HashSet<String>();
 
-        for(int i = 0; i < array.length(); i++) {
-            Object value = array.get(i);
-
-            if (value instanceof String)
-            	set.add(value.toString());
-        }
-
-        return set;
-    }
-    
     /**
      * Reads the json property by key and tries to apply it as a HashMap.
      *
@@ -201,7 +372,9 @@ public final class JsonUtils {
      * @param key    json property key
      * @param setter setter to apply value
      * @throws NullPointerException when null is passed for not null parameters
+     * @deprecated not maintained anymore, will be removed in one of the next versions
      */
+    @Deprecated
     public static void updateHashMap(@NotNull JsonObject object, @NotNull String key, @NotNull Consumer<HashMap<String, Object>> setter) {
         Objects.requireNonNull(object, "JsonObject");
         Objects.requireNonNull(key, "key");
@@ -214,21 +387,20 @@ public final class JsonUtils {
     /**
      * Convert the JsonObject to HashMap
      *
-     * @param object json object
-     * 
+     * @param jsonObject json object
      * @return HashMap<String, Object> The mapping
+     * @deprecated not maintained anymore, use {@link #ofJsonValue(JsonValue, Class)} instead
      */
-    private static HashMap<String, Object> toHashMap(JsonObject jsonobj) {
-        HashMap<String, Object> map = new HashMap<String, Object>();
-        Iterator<String> keys = Arrays.asList(jsonobj.keys()).iterator();
+    @Deprecated
+    private static HashMap<String, Object> toHashMap(JsonObject jsonObject) {
+        HashMap<String, Object> map = new HashMap<>();
 
-        while(keys.hasNext()) {
-            String key = keys.next();
-            Object value = jsonobj.get(key);
+        for (String key : jsonObject.keys()) {
+            Object value = jsonObject.get(key);
 
             if (value instanceof JsonArray)
                 value = toList((JsonArray) value);
-            else if (value instanceof JsonObject) 
+            else if (value instanceof JsonObject)
                 value = toHashMap((JsonObject) value);
 
             map.put(key, value);
@@ -240,14 +412,13 @@ public final class JsonUtils {
     /**
      * Convert the JsonArray to List
      *
-     * @param array json array
-     * 
-     * @return List<Object The list
+     * @deprecated not maintained anymore, use {@link #ofJsonValue(JsonValue, Class)} instead
      */
+    @Deprecated
     private static List<Object> toList(JsonArray array) {
-    	List<Object> list = new ArrayList<Object>();
+        List<Object> list = new ArrayList<>();
 
-        for(int i = 0; i < array.length(); i++) {
+        for (int i = 0; i < array.length(); i++) {
             Object value = array.get(i);
 
             if (value instanceof JsonArray)
@@ -262,38 +433,24 @@ public final class JsonUtils {
     }
 
     /**
-     * Parses a date time string sent from the client side. This string may apply to ZonedDateTime, Instant, LocalDate
-     * or LocalDateTime default parsers. The resulting temporal will be UTC based.
-     * <br><br>
-     * If no timezone is passed but is needed, the method will use the system's timezone.
+     * Convert the JsonArray to Set<String>
      *
-     * @param dateTimeString date time string
-     * @param timezone       timezone
-     * @return UTC based date time instance
-     * @throws NullPointerException when null is passed for not null parameters
+     * @param array json array
+     * @return Set<String> The set
+     * @deprecated not maintained anymore, use {@link #ofJsonValue(JsonValue, Class)} instead
      */
-    public static Instant parseDateTimeString(@NotNull String dateTimeString, Timezone timezone) {
-        Objects.requireNonNull(dateTimeString, "dateTimeString");
-        Instant dateTime;
+    @Deprecated
+    private static Set<String> toSetString(JsonArray array) {
+        Set<String> set = new HashSet<>();
 
-        try {
-            ZonedDateTime parse = ZonedDateTime.parse(dateTimeString);
-            dateTime = parse.toInstant();
-        } catch (DateTimeParseException e) {
-            try {
-                dateTime = Instant.parse(dateTimeString);
-            } catch (DateTimeParseException e1) {
-                if (timezone == null) {
-                    timezone = Timezone.getSystem();
-                }
+        for (int i = 0; i < array.length(); i++) {
+            Object value = array.get(i);
 
-                try {
-                    dateTime = timezone.convertToUTC(LocalDateTime.parse(dateTimeString));
-                } catch (DateTimeException e2) {
-                    dateTime = timezone.convertToUTC(LocalDate.parse(dateTimeString));
-                }
-            }
+//            if (value instanceof String) // invalid call, will never work
+            if (value instanceof JsonString)
+                set.add(((JsonString) value).asString());
         }
-        return dateTime;
+
+        return set;
     }
 }

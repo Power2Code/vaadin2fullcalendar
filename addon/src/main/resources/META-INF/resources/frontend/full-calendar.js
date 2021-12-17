@@ -1739,7 +1739,7 @@ export class FullCalendar extends PolymerElement {
             start: this._formatDate(event.start),
             end: end,
             allDay: event.allDay,
-            editable: event.extendedProps.editable // FIXME necessary? editable state should not be defined on client, but server only
+            // editable: event.extendedProps.editable // FIXME necessary? editable state should not be defined on client, but server only
         };
 
         if (oldResourceInfo != null) {
@@ -1783,43 +1783,61 @@ export class FullCalendar extends PolymerElement {
                 let eventToUpdate = calendar.getEventById(obj.id);
 
                 if (eventToUpdate != null) {
-                    // TODO check for unchanged values and ignore them
-
                     // since currently recurring events can not be set by updating existing events, we circumcise that
                     // by simply re-adding the event.
-                    // https://github.com/fullcalendar/fullcalendar/issues/4393
 
-                    if (obj['_hardReset'] === true || this._isServerSideRecurring(obj) || this._isClientSideRecurring(eventToUpdate)) {
+                    // Current issues with built in properties (therefore the special handlings of recurring and resources)
+                    // - https://github.com/fullcalendar/fullcalendar/issues/4393
+                    // - https://github.com/fullcalendar/fullcalendar/issues/5166
+                    // - https://github.com/fullcalendar/fullcalendar/issues/5262
+                    // Therefore this if will lead to a lot of "reset event", due to the fact, that resource editable
+                    // etc. might be set often.
+
+                    if (obj['_hardReset'] === true || this._isServerSideRecurring(obj)
+                        || this._isClientSideRecurring(eventToUpdate) || this._isResourceRelated(obj, eventToUpdate)) {
                         eventToUpdate.remove();
                         this.addEvents([obj]);
                     } else {
-                        eventToUpdate.setProp('title', obj['title']);
-                        eventToUpdate.setProp('color', obj['color']);
-                        eventToUpdate.setProp('classNames', obj['classNames']);
-                        eventToUpdate.setExtendedProp('description', obj['description'])
-                        let start = obj['start'] != null ? calendar.formatIso(obj['start'], obj['allDay']) : null;
-                        let end = obj['end'] != null ? calendar.formatIso(obj['end'], obj['allDay']) : null;
+                        for (let key in obj) {
+                            switch (key) {
+                                case "start":   // fallthrough
+                                case "end":     // fallthrough
+                                case "allDay":
+                                    // NOOP daytime settings are handled separately
+                                    break;
 
-                        eventToUpdate.setDates(start, end, {allDay: obj['allDay']});
+                                case "extendedProps":
+                                    let customProperties = obj[key];
+                                    for (let cpKey in customProperties) {
+                                        FullCalendar.setCustomProperty(eventToUpdate, cpKey, customProperties[cpKey]);
+                                    }
+                                    break;
+
+                                default:
+                                    eventToUpdate.setProp(key, obj[key]);
+                                    break;
+                            }
+                        }
+
+                        // handle time changes
+                        if (obj["start"] || obj["end"] || obj.hasOwnProperty("allDay")) {
+                            let start = obj['start'] ? calendar.formatIso(obj['start'], obj['allDay']) : null;
+                            let end = obj['end'] ? calendar.formatIso(obj['end'], obj['allDay']) : null;
+                            eventToUpdate.setDates(start, end, {allDay: obj['allDay']});
+                        }
 
                         // setting all day is not working 100%, we workaround it here
                         if (obj['allDay']) {
                             eventToUpdate.moveEnd();
                         }
-
-                        for (let property in obj) {
-                            if (property === "customProperties" && typeof obj[property] === "object") {
-                                for (let customExtendedProperty in obj[property]) {
-                                    FullCalendar.setCustomProperty(eventToUpdate, customExtendedProperty, obj[property][customExtendedProperty]);
-                                }
-                            } else if (property !== 'id' && property !== "start" && property !== "end" && property !== "allDay") {
-                                eventToUpdate.setExtendedProp(property, obj[property]);
-                            }
-                        }
                     }
                 }
             }
         });
+    }
+
+    _isResourceRelated(obj, eventToUpdate) {
+        return obj.hasOwnProperty("resourceIds") || obj.hasOwnProperty("resourceEditable");
     }
 
     /**
@@ -1829,8 +1847,8 @@ export class FullCalendar extends PolymerElement {
      * @return {*} property value
      */
     static getCustomProperty(event, key) {
-        if (event.extendedProps.customProperties) {
-            return event.extendedProps.customProperties[key];
+        if (event.extendedProps) {
+            return event.extendedProps[key];
         }
         return undefined;
     }
@@ -1842,10 +1860,12 @@ export class FullCalendar extends PolymerElement {
      * @param value value to write
      */
     static setCustomProperty(event, key, value) {
-        if (!event.extendedProps.customProperties) {
-            event.extendedProps.customProperties = {};
-        }
-        event.extendedProps.customProperties[key] = value;
+        // if (!event.extendedProps.customProperties) {
+        //     event.extendedProps.customProperties = {};
+        // }
+        // event.extendedProps.customProperties[key] = value;
+
+        event.setExtendedProp(key, value);
     }
 
     /**
@@ -1855,7 +1875,7 @@ export class FullCalendar extends PolymerElement {
      * @private
      */
     _isServerSideRecurring(event) {
-        return event.daysOfWeek != null || event.startTime != null || event.endTime != null || event.startRecur != null || event.endRecur != null;
+        return (event.daysOfWeek != null && Array.isArray(event.daysOfWeek) && event.daysOfWeek.length) || event.startTime != null || event.endTime != null || event.startRecur != null || event.endRecur != null || event.groupId != null;
     }
 
     /**

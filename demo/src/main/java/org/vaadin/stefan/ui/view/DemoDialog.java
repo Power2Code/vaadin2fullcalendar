@@ -257,7 +257,6 @@ public class DemoDialog extends Dialog {
             entry.setColor(color);
             entry.setDescription(description);
             entry.setAllDay(allDay);
-            entry.setRecurring(recurring);
 
             if (recurring) {
                 entry.setRecurringDaysOfWeeks(getRecurringDays());

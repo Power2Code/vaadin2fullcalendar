@@ -164,20 +164,21 @@ public class ResourceEntryTest {
         jsonObject.put("start", timezoneClient.convertToUTC(DEFAULT_START).toString());
         jsonObject.put("end", timezoneClient.convertToUTC(DEFAULT_END).toString());
         jsonObject.put("allDay", false);
-        jsonObject.put("editable", true);
+        jsonObject.put("editable", false);
         jsonObject.put("color", DEFAULT_COLOR);
         jsonObject.put("description", DEFAULT_DESCRIPTION); // this should not affect the object
 
         entry.update(jsonObject);
 
         Assertions.assertEquals(jsonObject.getString("id"), entry.getId());
-        Assertions.assertEquals(DEFAULT_TITLE, entry.getTitle());
         Assertions.assertFalse(entry.isAllDay());
         Assertions.assertEquals(DEFAULT_START, entry.getStart());
         Assertions.assertEquals(DEFAULT_END, entry.getEnd());
-        Assertions.assertTrue(entry.isEditable());
-        Assertions.assertEquals(DEFAULT_COLOR, entry.getColor());
         Assertions.assertEquals(resourceList, entry.getResources()); // should not have changed yet
+
+        Assertions.assertNull(entry.getTitle());
+        Assertions.assertTrue(entry.isEditable());
+        Assertions.assertNull(entry.getColor());
         Assertions.assertNull(entry.getDescription()); // should not be affected by json
     }
 
@@ -215,7 +216,7 @@ public class ResourceEntryTest {
         // test resource changes
         JsonObject jsonObject = Json.createObject();
         jsonObject.put("id", entry.getId());
-        jsonObject.put("oldResource", "2");
+        jsonObject.put("oldResource", resource2.getId());
         entry.update(jsonObject);
         Assertions.assertEquals(Collections.singleton(resource1), entry.getResources());
     }

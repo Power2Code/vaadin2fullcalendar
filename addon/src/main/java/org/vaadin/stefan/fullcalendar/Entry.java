@@ -23,6 +23,8 @@ import lombok.*;
 import javax.validation.constraints.NotNull;
 import java.time.*;
 import java.util.*;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Represents an event in the full calendar. It is named Entry here to prevent name conflicts with
@@ -43,19 +45,24 @@ public class Entry {
     private final String id;
 
     /**
+     * Events that share a groupId will be dragged and resized together automatically.
+     */
+    private String groupId;
+
+    /**
      * The entry's title. This title will be shown on the client side.
      */
     private String title;
 
     /**
-     * The entry's start as UTC.
+     * The entry's start (UTC based).
      */
-    private Instant start;
+    private Instant startUTC;
 
     /**
-     * The entry's end as UTC.
+     * The entry's end (UTC based).
      */
-    private Instant end;
+    private Instant endUTC;
 
     /**
      * Indicates if this entry is all day or not. There might be time values set for start or end even if this
@@ -68,14 +75,14 @@ public class Entry {
      * Determines which HTML classNames will be attached to the rendered event.
      */
     private Set<String> classNames;
-    
+
     /**
      * Indicates if this entry is editable by the users. This value
      * is passed to the client side and interpreted there, but can also be used for server side checks.
      * <br><br>
      * This value has no impact on the resource API of this class.
      */
-    private boolean editable;
+    private boolean editable = true;
 
     /**
      * Indicates if this entry's start is editable by the users. This value
@@ -83,7 +90,7 @@ public class Entry {
      * <br><br>
      * This value has no impact on the resource API of this class.
      */
-    private boolean startEditable;
+    private boolean startEditable = true;
 
     /**
      * Indicates if this entry's end is editable by the users. This value
@@ -91,51 +98,52 @@ public class Entry {
      * <br><br>
      * This value has no impact on the resource API of this class.
      */
-    private boolean durationEditable;
+    private boolean durationEditable = true;
 
     /**
-     * The color of this entry.
+     * The color of this entry. Any valid css color is allowed (e.g. #f00, #ff0000, rgb(255,0,0), or red).
      */
     private String color;
 
     /**
-     * The description of this entry.
-     * <br><br>
-     * Please be aware, that the description is a non-standard field on the client side and thus will not be
-     * displayed in the entry's space. You can use it for custom entry rendering
-     * (see {@link FullCalendar#setEntryContentCallback(String)}.
+     * The background color of this entry. Any valid css color is allowed (e.g. #f00, #ff0000, rgb(255,0,0), or red).
      */
-    private String description;
+    private String backgroundColor;
 
     /**
-     * The custom property list
+     * The border color of this entry. Any valid css color is allowed (e.g. #f00, #ff0000, rgb(255,0,0), or red).
+     */
+    private String borderColor;
+
+    /**
+     * The text color of this entry. Any valid css color is allowed (e.g. #f00, #ff0000, rgb(255,0,0), or red).
+     */
+    private String textColor;
+
+    /**
+     * The extended property list. Contains any non standard property. Please see also the fullcalendar
+     * documentation regarding extended properties. Be aware, that any non standard property you
+     * set via "set(..., ...)" is not automatically put into this map, but this is done by the client later.
      */
     private Map<String, Object> customProperties;
 
     /**
-     * The rendering mode of this entry. Never null
+     * The rendering mode of this entry. Never null. Client side Display
      */
     @NonNull
     private RenderingMode renderingMode = RenderingMode.NONE;
 
     /**
-     * Simple flag that indicates, if this entry is a recurring one or not. Recurring information
-     * might be stored in the entry independently to this flag (server side only information).
-     * Does <b>not</b> remove any recurring information, when set to false.
-     */
-    private boolean recurring;
-
-    /**
      * Returns the days of weeks on which this event should recur. Null or empty when
      * no recurring is defined.
      */
-    private Set<DayOfWeek> recurringDaysOfWeeks;
+    private Set<DayOfWeek> recurringDaysOfWeek;
 
     /**
      * The start date of recurrence. When not defined, recurrence will extend infinitely to the past (when the entry
      * is recurring).
      */
-    private Instant recurringStartDate;
+    private Instant recurringStartDateUTC;
 
     /**
      * The start time of recurrence. When not defined, the event will appear as an all day event.
@@ -146,7 +154,7 @@ public class Entry {
      * The end date of recurrence. When not defined, recurrence will extend infinitely to the past (when the entry
      * is recurring).
      */
-    private Instant recurringEndDate;
+    private Instant recurringEndDateUTC;
 
     /**
      * The start time of recurrence. Passing null on a recurring entry will make it appear as an all day event.
@@ -154,9 +162,22 @@ public class Entry {
     private LocalTime recurringEndTime;
 
     /**
-     * Events that share a groupId will be dragged and resized together automatically.
+     * If false, prevents this event from being dragged/resized over other events.
+     * Also prevents other events from being dragged/resized over this event.
      */
-    private String groupId;
+    private boolean overlappingAllowed;
+
+    /**
+     * Boolean. Whether or not the event is tabbable. Defaults to true if url is present, false otherwise.
+     * See https://fullcalendar.io/docs/eventInteractive for more info.
+     */
+    private boolean interactive;
+
+    /**
+     * A URL that will be visited when this event is clicked by the user.
+     * For more information on controlling this behavior, see the eventClick callback.
+     */
+    private String url;
 
     /**
      * The calendar instance to be used internally. There is NO automatic removal or add when the calendar changes.
@@ -166,7 +187,7 @@ public class Entry {
     private FullCalendar calendar;
 
     /**
-     * Creates a new editable instance with a generated id.
+     * Creates a new instance with a generated id.
      */
     public Entry() {
         this(null);
@@ -182,7 +203,6 @@ public class Entry {
      */
     public Entry(String id) {
         this.id = id != null ? id : UUID.randomUUID().toString();
-        this.editable = true;
     }
 
     /**
@@ -191,42 +211,63 @@ public class Entry {
      * @return json
      */
     protected JsonObject toJson() {
+
+        // ordering of this list refers to https://fullcalendar.io/docs/event-parsing
         JsonObject jsonObject = Json.createObject();
         jsonObject.put("id", JsonUtils.toJsonValue(getId()));
-        jsonObject.put("title", JsonUtils.toJsonValue(getTitle()));
-        Optional.ofNullable(getGroupId()).ifPresent(g -> jsonObject.put("groupId", JsonUtils.toJsonValue(g)));
-
-        boolean fullDayEvent = isAllDay();
-        jsonObject.put("allDay", JsonUtils.toJsonValue(fullDayEvent));
+        jsonObject.put("groupId", JsonUtils.toJsonValue(getGroupId()));
+        jsonObject.put("allDay", JsonUtils.toJsonValue(isAllDay()));
 
         jsonObject.put("start", JsonUtils.toJsonValue(getStartUTC() == null ? null : getStartTimezoneClient().formatWithZoneId(getStartUTC())));
         jsonObject.put("end", JsonUtils.toJsonValue(getEndUTC() == null ? null : getEndTimezoneClient().formatWithZoneId(getEndUTC())));
-        jsonObject.put("editable", isEditable());
-        Optional.ofNullable(getColor()).ifPresent(s -> jsonObject.put("color", s));
-        jsonObject.put("display", JsonUtils.toJsonValue(getRenderingMode()));
 
-        jsonObject.put("daysOfWeek", JsonUtils.toJsonValue(recurringDaysOfWeeks == null || recurringDaysOfWeeks.isEmpty() ? null : recurringDaysOfWeeks.stream().map(dayOfWeek -> dayOfWeek == DayOfWeek.SUNDAY ? 0 : dayOfWeek.getValue())));
-        jsonObject.put("startTime", JsonUtils.toJsonValue(recurringStartTime));
-        jsonObject.put("endTime", JsonUtils.toJsonValue(recurringEndTime));
-        jsonObject.put("startRecur", JsonUtils.toJsonValue(recurringStartDate == null ? null : getStartTimezoneClient().formatWithZoneId(recurringStartDate)));
-        jsonObject.put("endRecur", JsonUtils.toJsonValue(recurringEndDate == null ? null : getEndTimezoneClient().formatWithZoneId(recurringEndDate)));
+        Set<Integer> daysOfWeek = getRecurringDaysOfWeekOrEmpty().stream().map(dayOfWeek -> dayOfWeek == DayOfWeek.SUNDAY ? 0 : dayOfWeek.getValue()).collect(Collectors.toSet());
+        jsonObject.put("daysOfWeek", JsonUtils.toJsonValue(daysOfWeek.isEmpty() ? null : daysOfWeek)); // passing null instead of empty set is important, otherwise the entry will not be displayed
+        jsonObject.put("startTime", JsonUtils.toJsonValue(getRecurringStartTime()));
+        jsonObject.put("endTime", JsonUtils.toJsonValue(getRecurringEndTime()));
+        jsonObject.put("startRecur", JsonUtils.toJsonValue(getRecurringStartDateUTC() == null ? null : getStartTimezoneClient().formatWithZoneId(getRecurringStartDateUTC())));
+        jsonObject.put("endRecur", JsonUtils.toJsonValue(getRecurringEndDateUTC() == null ? null : getEndTimezoneClient().formatWithZoneId(getRecurringEndDateUTC())));
 
-        jsonObject.put("description", JsonUtils.toJsonValue(getDescription()));
+        jsonObject.put("title", JsonUtils.toJsonValue(getTitle()));
 
+        setIfNotBlank(jsonObject, this::getUrl, "url");
+        jsonObject.put("interactive", JsonUtils.toJsonValue(isInteractive()));
         jsonObject.put("classNames", JsonUtils.toJsonValue(getClassNames()));
+
+        jsonObject.put("editable", JsonUtils.toJsonValue(isEditable()));
+        jsonObject.put("startEditable", JsonUtils.toJsonValue(isStartEditable()));
+        jsonObject.put("durationEditable", JsonUtils.toJsonValue(isDurationEditable()));
+        jsonObject.put("display", JsonUtils.toJsonValue(getRenderingMode()));
+        jsonObject.put("overlap", JsonUtils.toJsonValue(this.isOverlappingAllowed()));
+
+        setIfNotBlank(jsonObject, this::getColor, "color");
+        setIfNotBlank(jsonObject, this::getBackgroundColor, "backgroundColor");
+        setIfNotBlank(jsonObject, this::getBorderColor, "borderColor");
+        setIfNotBlank(jsonObject, this::getTextColor, "textColor");
 
         JsonObject extObject = Json.createObject();
 
-        Map<String, Object> customProperties = getCustomProperties();
+        Map<String, Object> customProperties = getCustomPropertiesOrEmpty();
         if (!customProperties.isEmpty()) {
             for (Map.Entry<String, Object> extProp : customProperties.entrySet()) {
                 extObject.put(extProp.getKey(), JsonUtils.toJsonValue(extProp.getValue()));
             }
         }
 
-        jsonObject.put("customProperties", extObject);
+        jsonObject.put("extendedProps", extObject);
 
         return jsonObject;
+    }
+
+    private void setIfNotNull(JsonObject jsonObject, Supplier<?> getter, String property) {
+        Optional.ofNullable(getter.get()).ifPresent((Object o) -> jsonObject.put(property, JsonUtils.toJsonValue(o)));
+    }
+
+    private void setIfNotBlank(JsonObject jsonObject, Supplier<String> getter, String property) {
+        String s = getter.get();
+        if (s != null && !s.trim().isEmpty()) {
+            jsonObject.put(property, s);
+        }
     }
 
     /**
@@ -243,15 +284,11 @@ public class Entry {
             throw new IllegalArgumentException("IDs are not matching.");
         }
 
-        JsonUtils.updateString(object, "title", this::setTitle);
-        JsonUtils.updateString(object, "groupId", this::setGroupId);
-        JsonUtils.updateBoolean(object, "editable", this::setEditable);
         JsonUtils.updateBoolean(object, "allDay", this::setAllDay);
-        JsonUtils.updateDateTime(object, "start", this::setStart, getStartTimezoneClient());
-        JsonUtils.updateDateTime(object, "end", this::setEnd, getEndTimezoneClient());
-        JsonUtils.updateString(object, "color", this::setColor);
-        JsonUtils.updateHashMap(object, "extendedProps", this::setCustomProperties);
-        JsonUtils.updateSetString(object, "classNames", this::setClassNames);
+        JsonUtils.updateDateTime(object, "start", this::setStartUTC, getStartTimezoneClient());
+        JsonUtils.updateDateTime(object, "end", this::setEndUTC, getEndTimezoneClient());
+        JsonUtils.updateDateTime(object, "startRecur", this::setRecurringStartDateUTC, getStartTimezoneClient());
+        JsonUtils.updateDateTime(object, "endRecur", this::setRecurringEndDateUTC, getEndTimezoneClient());
     }
 
     /**
@@ -263,13 +300,13 @@ public class Entry {
         return Optional.ofNullable(calendar);
     }
 
-    /**
-     * Returns the start of the entry based on UTC.
-     *
-     * @return start
-     */
-    public Instant getStartUTC() {
-        return start;
+    public boolean isRecurring() {
+        Set<DayOfWeek> daysOfWeek = getRecurringDaysOfWeek();
+        return (daysOfWeek != null && !daysOfWeek.isEmpty())
+                || getRecurringEndDateUTC() != null
+                || getRecurringStartDateUTC() != null
+                || getRecurringStartTime() != null
+                || getRecurringEndTime() != null;
     }
 
     /**
@@ -286,17 +323,18 @@ public class Entry {
      * Sets the given instant time as start.
      *
      * @param start start
+     * @deprecated use {@link #setStartUTC(Instant)}
      */
     public void setStart(Instant start) {
-        this.start = start;
+        this.startUTC = start;
     }
 
     /**
      * Sets the given local date time as start. It is converted to an instant by using the
      * calendars server side timezone. If no calendar has been set yet, the server's default timezone is taken.
      *
-     * @see #getStartTimezoneServer()
      * @param start start
+     * @see #getStartTimezoneServer()
      */
     public void setStart(LocalDateTime start) {
         setStart(start, getStartTimezoneServer());
@@ -311,16 +349,7 @@ public class Entry {
      */
     public LocalDateTime getStart(@NotNull Timezone timezone) {
         Objects.requireNonNull(timezone, "timezone");
-        return start != null ? LocalDateTime.ofInstant(start, timezone.getZoneId().getRules().getOffset(start)) : null;
-    }
-
-    /**
-     * Returns the start of the entry based on UTC.
-     *
-     * @return start
-     */
-    public Instant getEndUTC() {
-        return end;
+        return startUTC != null ? LocalDateTime.ofInstant(startUTC, timezone.getZoneId().getRules().getOffset(startUTC)) : null;
     }
 
     /**
@@ -337,9 +366,10 @@ public class Entry {
      * Sets the given instant time as end.
      *
      * @param end end
+     * @deprecated use {@link #setEndUTC(Instant)} instead
      */
     public void setEnd(Instant end) {
-        this.end = end;
+        this.endUTC = end;
     }
 
     /**
@@ -361,7 +391,7 @@ public class Entry {
      */
     public LocalDateTime getEnd(@NotNull Timezone timezone) {
         Objects.requireNonNull(timezone, "timezone");
-        return end != null ? LocalDateTime.ofInstant(end, timezone.getZoneId().getRules().getOffset(end)) : null;
+        return endUTC != null ? LocalDateTime.ofInstant(endUTC, timezone.getZoneId().getRules().getOffset(endUTC)) : null;
     }
 
     /**
@@ -376,7 +406,7 @@ public class Entry {
     public void setStart(@NotNull LocalDateTime start, @NotNull Timezone timezone) {
         Objects.requireNonNull(start, "start");
         Objects.requireNonNull(timezone, "timezone");
-        this.start = timezone.convertToUTC(start);
+        this.startUTC = timezone.convertToUTC(start);
     }
 
     /**
@@ -391,7 +421,7 @@ public class Entry {
     public void setEnd(@NotNull LocalDateTime end, @NotNull Timezone timezone) {
         Objects.requireNonNull(end, "end");
         Objects.requireNonNull(timezone, "timezone");
-        this.end = timezone.convertToUTC(end);
+        this.endUTC = timezone.convertToUTC(end);
     }
 
     /**
@@ -408,7 +438,6 @@ public class Entry {
      *
      * @param key   the name of the property to set
      * @param value value to set
-     *
      */
     public void setCustomProperty(@NotNull String key, Object value) {
         if (customProperties == null) {
@@ -445,9 +474,10 @@ public class Entry {
     /**
      * Returns the timezone which is used on the client side. It is used to convert the internal utc timestamp
      * to the client side timezone. By default UTC.
+     *
+     * @return timezone
      * @deprecated use {@link #getStartTimezoneClient()}() or {@link #getEndTimezoneClient()} instead depending
      * on your use case
-     * @return timezone
      */
     @Deprecated
     public Timezone getStartTimezone() {
@@ -469,23 +499,23 @@ public class Entry {
      * Returns the timezone which is used on the client side. It is used to convert the internal utc timestamp
      * to the client side timezone. By default UTC.
      *
+     * @return timezone
      * @deprecated use {@link #getEndTimezoneClient()} or {@link #getEndTimezoneServer()} instead depending on your
      * use case
-     * @return timezone
      */
     @Deprecated
     public Timezone getEndTimezone() {
         return getEndTimezoneClient();
     }
 
-     /**
-      * Returns the timezone which is used on the client side. It is used to convert the internal utc timestamp
-      * to the client side timezone. By default UTC.
+    /**
+     * Returns the timezone which is used on the client side. It is used to convert the internal utc timestamp
+     * to the client side timezone. By default UTC.
      *
      * @return timezone
      */
     public Timezone getEndTimezoneClient() {
-    	return calendar != null ? calendar.getTimezoneClient() : Timezone.UTC;
+        return calendar != null ? calendar.getTimezoneClient() : Timezone.UTC;
     }
 
     /**
@@ -505,20 +535,11 @@ public class Entry {
      * using {@link #setEnd(LocalDateTime)} or {@link #getEnd()}.
      * <p></p>
      * By default the server timezone.
+     *
      * @return timezone
      */
     public Timezone getEndTimezoneServer() {
         return Timezone.getSystem();
-    }
-
-    /**
-     * The start date of recurrence. When not defined, recurrence will extend infinitely to the past (when the entry
-     * is recurring).
-     *
-     * @return start date of recurrence
-     */
-    public Instant getRecurringStartDateUTC() {
-        return recurringStartDate;
     }
 
     /**
@@ -533,7 +554,7 @@ public class Entry {
      */
     public LocalDate getRecurringStartDate(@NotNull Timezone timezone) {
         Objects.requireNonNull(timezone, "timezone");
-        return recurringStartDate != null ? LocalDateTime.ofInstant(recurringStartDate, timezone.getZoneId().getRules().getOffset(recurringStartDate)).toLocalDate() : null;
+        return getRecurringStartDateUTC() != null ? LocalDateTime.ofInstant(getRecurringStartDateUTC(), timezone.getZoneId().getRules().getOffset(getRecurringStartDateUTC())).toLocalDate() : null;
     }
 
     /**
@@ -566,31 +587,25 @@ public class Entry {
     }
 
     /**
-     * The end date of recurrence. When not defined, recurrence will extend infinitely to the past (when the entry
-     * is recurring).
-     *
-     * @return end date of recurrence
-     */
-    public Instant getRecurringEndDateUTC() {
-        return recurringEndDate;
-    }
-
-    /**
      * The start date of recurrence. Passing null on a recurring entry will extend the recurrence infinitely to the future.
      *
      * @param recurringStartDate start date or recurrence
+     * @deprecated use {@link #setRecurringStartDateUTC(Instant)}
      */
+    @Deprecated
     public void setRecurringStartDate(Instant recurringStartDate) {
-        this.recurringStartDate = recurringStartDate;
+        setRecurringStartDateUTC(recurringStartDateUTC);
     }
 
     /**
      * The end date of recurrence. Passing null on a recurring entry will extend the recurrence infinitely to the past.
      *
      * @param recurringEndDate end date or recurrence
+     * @deprecated use {@link #setRecurringEndDateUTC(Instant)}
      */
+    @Deprecated
     public void setRecurringEndDate(Instant recurringEndDate) {
-        this.recurringEndDate = recurringEndDate;
+        setRecurringEndDateUTC(recurringEndDateUTC);
     }
 
     /**
@@ -605,7 +620,7 @@ public class Entry {
      */
     public LocalDate getRecurringEndDate(@NotNull Timezone timezone) {
         Objects.requireNonNull(timezone, "timezone");
-        return recurringEndDate != null ? LocalDateTime.ofInstant(recurringEndDate, timezone.getZoneId().getRules().getOffset(recurringEndDate)).toLocalDate() : null;
+        return getRecurringEndDateUTC() != null ? LocalDateTime.ofInstant(getRecurringEndDateUTC(), timezone.getZoneId().getRules().getOffset(getRecurringEndDateUTC())).toLocalDate() : null;
     }
 
     /**
@@ -640,12 +655,37 @@ public class Entry {
 
     /**
      * Returns an unmodifiable map of the custom properties of this instance.
+     *
      * @return Map
      */
-    public Map<String, Object> getCustomProperties() {
-        return customProperties != null ? Collections.unmodifiableMap(customProperties) : Collections.emptyMap();
+    public Map<String, Object> getCustomPropertiesOrEmpty() {
+        return getCustomProperties() != null ? Collections.unmodifiableMap(getCustomProperties()) : Collections.emptyMap();
     }
-    
+
+    /**
+     * Returns a map of the custom properties of this instance or creates one, if not yet existing.
+     *
+     * @return Map
+     */
+    public Map<String, Object> getCustomPropertiesOrInit() {
+        if (customProperties == null) {
+            customProperties = new HashMap<>();
+        }
+        return customProperties;
+    }
+
+    public Set<DayOfWeek> getRecurringDaysOfWeekOrEmpty() {
+        return Collections.unmodifiableSet(recurringDaysOfWeek != null ? recurringDaysOfWeek : Collections.emptySet());
+    }
+
+    public Set<DayOfWeek> getRecurringDaysOfWeekOrInit() {
+        if (recurringDaysOfWeek == null) {
+            recurringDaysOfWeek = new HashSet<>();
+        }
+
+        return recurringDaysOfWeek;
+    }
+
     /**
      * Assign an additional className to this entry. Already assigned classNames will be kept.
      *
@@ -653,9 +693,9 @@ public class Entry {
      * @throws NullPointerException when null is passed
      */
     public void assignClassName(String className) {
-    	assignClassNames(Objects.requireNonNull(className));
+        assignClassNames(Objects.requireNonNull(className));
     }
-    
+
     /**
      * Assign additional classNames to this entry. Already assigned classNames will be kept.
      *
@@ -663,9 +703,9 @@ public class Entry {
      * @throws NullPointerException when null is passed
      */
     public void assignClassNames(@NotNull String... classNames) {
-    	assignClassNames(Arrays.asList(classNames));
+        assignClassNames(Arrays.asList(classNames));
     }
-    
+
     /**
      * Assign additional classNames to this entry. Already assigned classNames will be kept.
      *
@@ -674,13 +714,9 @@ public class Entry {
      */
     public void assignClassNames(@NotNull Collection<String> classNames) {
         Objects.requireNonNull(classNames);
-        if (this.classNames == null) {
-            this.classNames = new LinkedHashSet<>(classNames);
-        } else {
-            this.classNames.addAll(classNames);
-        }
+        getClassNamesOrInit().addAll(classNames);
     }
-    
+
     /**
      * Unassigns the given className from this entry.
      *
@@ -688,9 +724,9 @@ public class Entry {
      * @throws NullPointerException when null is passed
      */
     public void unassignClassName(String className) {
-    	unassignClassNames(Objects.requireNonNull(className));
+        unassignClassNames(Objects.requireNonNull(className));
     }
-    
+
     /**
      * Unassigns the given classNames from this entry.
      *
@@ -698,7 +734,7 @@ public class Entry {
      * @throws NullPointerException when null is passed
      */
     public void unassignClassNames(@NotNull String... classNames) {
-    	unassignClassNames(Arrays.asList(classNames));
+        unassignClassNames(Arrays.asList(classNames));
     }
 
     /**
@@ -708,10 +744,11 @@ public class Entry {
      * @throws NullPointerException when null is passed
      */
     public void unassignClassNames(@NotNull Collection<String> classNames) {
-        if (this.classNames != null)
+        if (this.classNames != null) {
             this.classNames.removeAll(classNames);
+        }
     }
-    
+
     /**
      * Unassigns all classNames from this entry.
      */
@@ -721,15 +758,29 @@ public class Entry {
             this.classNames = null;
         }
     }
-    
+
     /**
      * Returns an unmodifiable set of the class names of this instance.
+     *
      * @return Set
      */
-    public Set<String> getClassNames() {
-    	return classNames != null ? Collections.unmodifiableSet(classNames) : Collections.emptySet();
+    public Set<String> getClassNamesOrEmpty() {
+        return getClassNames() != null ? Collections.unmodifiableSet(getClassNames()) : Collections.emptySet();
     }
-    
+
+    /**
+     * Returns the class names or inits them
+     *
+     * @return Set
+     */
+    public Set<String> getClassNamesOrInit() {
+        if (classNames == null) {
+            classNames = new LinkedHashSet<>();
+        }
+
+        return classNames;
+    }
+
     /**
      * Returns the amount of assigned classNames.
      *
@@ -738,14 +789,61 @@ public class Entry {
     public int getClassNamesSize() {
         return classNames != null ? classNames.size() : 0;
     }
-    
+
     /**
      * Returns, if the entry has any class name assigned.
      *
      * @return Boolean hasClassNames
      */
     public boolean hasClassNames() {
-    	return classNames != null && !classNames.isEmpty();
+        return classNames != null && !classNames.isEmpty();
+    }
+
+    /**
+     * @deprecated use {@link #getRecurringDaysOfWeek()}
+     */
+    @Deprecated
+    public Set<DayOfWeek> getRecurringDaysOfWeeks() {
+        return getRecurringDaysOfWeek();
+    }
+
+    /**
+     * @deprecated use {@link #setRecurringDaysOfWeek(Set)}
+     */
+    @Deprecated
+    public void setRecurringDaysOfWeeks(Set<DayOfWeek> recurringDaysOfWeek) {
+        setRecurringDaysOfWeek(recurringDaysOfWeek);
+    }
+
+    /**
+     * The description of this entry.
+     * <br><br>
+     * Please be aware, that the description is a non-standard field on the client side and thus will not be
+     * displayed in the entry's space. You can use it for custom entry rendering
+     * (see {@link FullCalendar#setEntryContentCallback(String)}.
+     *
+     * @deprecated Used to be a hardcoded property despite its custom property nature. Better set via custom properties
+     * directly. Might be removed in future.
+     * @param description description
+     */
+    @Deprecated
+    public void setDescription(String description) {
+        getCustomPropertiesOrInit().put("description", description);
+    }
+
+    /**
+     * The description of this entry.
+     * <br><br>
+     * Please be aware, that the description is a non-standard field on the client side and thus will not be
+     * displayed in the entry's space. You can use it for custom entry rendering
+     * (see {@link FullCalendar#setEntryContentCallback(String)}.
+     *
+     * @deprecated Used to be a hardcoded property despite its custom property nature. Better set via custom properties
+     * directly. Might be removed in future.
+     */
+    @Deprecated
+    public String getDescription() {
+        return (String) getCustomPropertiesOrEmpty().get("description");
     }
 
     @Override
@@ -754,23 +852,26 @@ public class Entry {
                 "id='" + id + '\'' +
                 ", groupId='" + groupId + '\'' +
                 ", title='" + title + '\'' +
-                ", startUTC=" + start +
-                ", endUTC=" + end +
+                ", startUTC=" + startUTC +
+                ", endUTC=" + endUTC +
                 ", allDay=" + allDay +
                 ", editable=" + editable +
                 ", startEditable=" + startEditable +
                 ", durationEditable=" + durationEditable +
                 ", color='" + color + '\'' +
                 ", renderingMode=" + renderingMode +
-                ", recurringDaysOfWeeks=" + recurringDaysOfWeeks +
-                ", recurringStartDate=" + recurringStartDate +
+                ", recurringDaysOfWeek=" + recurringDaysOfWeek +
+                ", recurringStartDate=" + recurringStartDateUTC +
                 ", recurringStartTime=" + recurringStartTime +
-                ", recurringEndDate=" + recurringEndDate +
+                ", recurringEndDate=" + recurringEndDateUTC +
                 ", recurringEndTime=" + recurringEndTime +
-                ", description='" + description + '\'' +
                 ", classNames=" + classNames +
                 ", customProperties=" + customProperties +
                 '}';
+    }
+
+    public Entry copy() {
+        return null;
     }
 
     /**
@@ -819,4 +920,6 @@ public class Entry {
         }
 
     }
+
+
 }

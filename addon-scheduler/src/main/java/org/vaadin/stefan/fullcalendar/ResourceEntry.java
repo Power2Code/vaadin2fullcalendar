@@ -73,21 +73,41 @@ public class ResourceEntry extends Entry {
     }
 
     /**
-     * Returns the first assigned resource. Is empty if no resource has been assigned yet.
+     * Returns an assigned resource. Is empty if no resource has been assigned yet. This method is mainly intended
+     * to be used for entries where it is sure, that it only has one resource. For entries with multiple
+     * resources it might be, that on the next call, the resource change (currently this class uses
+     * a {@link LinkedHashSet}, but that might change in future).
      *
      * @return resource
      */
     public Optional<Resource> getResource() {
-        return Optional.ofNullable(resources != null && !resources.isEmpty() ? resources.iterator().next() : null);
+        return getResourcesOrEmpty().stream().findFirst();
     }
 
     /**
-     * Returns a copy of the entry's assigned resources.
+     * Returns an unmodifiable set of resources or an empty one, if no resources have been defined yet.
+     *
+     * @return unmodifiable set of resources
+     */
+    public Set<Resource> getResourcesOrEmpty() {
+        Set<Resource> resources = getResources();
+        return resources != null ? Collections.unmodifiableSet(resources) : Collections.emptySet();
+    }
+
+    /**
+     * Returns a copy of the entry's assigned resources. Any changes to this set are reflected to the
+     * backend and will be applied to the client on the next entry's update.
+     * <p></p>
+     * In earlier versions this set might have been unmodifiable. This is not the case anymore.
      *
      * @return entry's resources
      */
     public Set<Resource> getResources() {
-        return resources != null ? Collections.unmodifiableSet(resources) : Collections.emptySet();
+        if (resources == null) {
+            resources = new LinkedHashSet<>();
+        }
+
+        return resources;
     }
 
     /**
@@ -96,7 +116,7 @@ public class ResourceEntry extends Entry {
      * @return resources
      */
     public int getResourcesSize() {
-        return resources != null ? resources.size() : 0;
+        return getResourcesOrEmpty().size();
     }
 
     /**
@@ -105,7 +125,7 @@ public class ResourceEntry extends Entry {
      * @return has resources
      */
     public boolean hasResources() {
-        return resources != null && !resources.isEmpty();
+        return !getResourcesOrEmpty().isEmpty();
     }
 
     /**
@@ -126,11 +146,7 @@ public class ResourceEntry extends Entry {
      */
     public void assignResources(@NotNull Collection<Resource> resources) {
         Objects.requireNonNull(resources);
-        if (this.resources == null) {
-            this.resources = new LinkedHashSet<>(resources);
-        } else {
-            this.resources.addAll(resources);
-        }
+        getResources().addAll(resources);
     }
 
     /**
@@ -170,8 +186,8 @@ public class ResourceEntry extends Entry {
      * @throws NullPointerException when null is passed
      */
     public void unassignResources(@NotNull Collection<Resource> resources) {
-        if (this.resources != null) {
-            this.resources.removeAll(resources);
+        if (hasResources()) {
+            getResources().removeAll(resources);
         }
     }
 
@@ -215,12 +231,12 @@ public class ResourceEntry extends Entry {
         super.update(object);
 
         getCalendar().map(c -> (Scheduler) c).ifPresent(calendar -> {
-
-            Optional.<JsonValue>ofNullable(object.get("oldResource"))
+            Optional<Set<Resource>> oldResource = Optional.<JsonValue>ofNullable(object.get("oldResource"))
                     .filter(o -> o instanceof JsonString)
                     .map(JsonValue::asString)
                     .flatMap(calendar::getResourceById)
-                    .map(Collections::singleton)
+                    .map(Collections::singleton);
+            oldResource
                     .ifPresent(this::unassignResources);
 
             Optional.<JsonValue>ofNullable(object.get("newResource"))

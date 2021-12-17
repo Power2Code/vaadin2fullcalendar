@@ -1015,7 +1015,7 @@ public class FullCalendar extends Component implements HasStyle, HasSize {
         Timezone oldTimezone = getTimezoneClient();
         if (!timezone.equals(oldTimezone)) {
         	setOption(Option.TIMEZONE, timezone.getClientSideValue(), timezone);
-            updateEntries(getEntries());
+//            updateEntries(getEntries()); // is this really necessary?
         }
     }
 
