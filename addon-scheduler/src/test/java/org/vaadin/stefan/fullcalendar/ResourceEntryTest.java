@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -102,8 +101,9 @@ public class ResourceEntryTest {
 
     /**
      * Checks an original entry and the json based variant for equal fields, that can be changed by json.
+     *
      * @param expected expected entry
-     * @param actual actual entry
+     * @param actual   actual entry
      */
     static void assertFullEqualsByJsonAttributes(ResourceEntry expected, ResourceEntry actual) {
         Assertions.assertEquals(expected.getId(), actual.getId());
@@ -168,7 +168,7 @@ public class ResourceEntryTest {
         jsonObject.put("color", DEFAULT_COLOR);
         jsonObject.put("description", DEFAULT_DESCRIPTION); // this should not affect the object
 
-        entry.update(jsonObject);
+        entry.updateFromJson(jsonObject);
 
         Assertions.assertEquals(jsonObject.getString("id"), entry.getId());
         Assertions.assertFalse(entry.isAllDay());
@@ -198,7 +198,7 @@ public class ResourceEntryTest {
         JsonObject jsonObject = Json.createObject();
         jsonObject.put("id", entry.getId());
         jsonObject.put("newResource", "3");
-        entry.update(jsonObject);
+        EntryDroppedSchedulerEvent.updateResourcesFromEventResourceDelta(entry, jsonObject);
         Assertions.assertEquals(new LinkedHashSet<>(Arrays.asList(resource1, resource2, resource3)), entry.getResources());
     }
 
@@ -217,7 +217,7 @@ public class ResourceEntryTest {
         JsonObject jsonObject = Json.createObject();
         jsonObject.put("id", entry.getId());
         jsonObject.put("oldResource", resource2.getId());
-        entry.update(jsonObject);
+        EntryDroppedSchedulerEvent.updateResourcesFromEventResourceDelta(entry, jsonObject);
         Assertions.assertEquals(Collections.singleton(resource1), entry.getResources());
     }
 
@@ -238,7 +238,7 @@ public class ResourceEntryTest {
         jsonObject.put("id", entry.getId());
         jsonObject.put("oldResource", "2");
         jsonObject.put("newResource", "3");
-        entry.update(jsonObject);
+        EntryDroppedSchedulerEvent.updateResourcesFromEventResourceDelta(entry, jsonObject);
         Assertions.assertEquals(new LinkedHashSet<>(Arrays.asList(resource1, resource3)), entry.getResources());
     }
 

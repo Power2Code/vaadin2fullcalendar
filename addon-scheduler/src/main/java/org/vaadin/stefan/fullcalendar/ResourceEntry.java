@@ -17,8 +17,6 @@
 package org.vaadin.stefan.fullcalendar;
 
 import elemental.json.JsonObject;
-import elemental.json.JsonString;
-import elemental.json.JsonValue;
 
 import javax.validation.constraints.NotNull;
 import java.util.*;
@@ -140,7 +138,7 @@ public class ResourceEntry extends Entry {
      * @return has resources
      */
     public boolean hasResources() {
-        return getResourcesOrEmpty().isEmpty();
+        return !getResourcesOrEmpty().isEmpty();
     }
 
     /**
@@ -210,36 +208,8 @@ public class ResourceEntry extends Entry {
      * Unassigns all resources from this entry.
      */
     public void unassignAllResources() {
-//        if (hasResources()) {
-//            getResources().clear();
-            remove(ResourceEntryKey.RESOURCES);
-//        }
+        remove(ResourceEntryKey.RESOURCES);
     }
-
-//    @Override
-//    protected JsonObject toJson() {
-//        JsonObject jsonObject = super.toJson();
-//
-//        if (resources != null) {
-//            JsonArray array = Json.createArray();
-//            int i = 0;
-//            for (Resource r : resources) {
-//                array.set(i++, r.getId());
-//            }
-//
-//            jsonObject.put("resourceIds", array);
-//
-//            if (getColor() == null && !resources.isEmpty()) {
-//                jsonObject.put("_hardReset", true);  // currently needed to make sure, that the color is
-//                // set correctly. Might change in future, if not performant
-//            }
-//        }
-//
-//
-//        jsonObject.put("resourceEditable", isResourceEditable());
-//
-//        return jsonObject;
-//    }
 
     @Override
     protected void writeJsonOnUpdate(JsonObject jsonObject) {
@@ -251,28 +221,6 @@ public class ResourceEntry extends Entry {
         }
     }
 
-    //    @Override
-//    protected void update(JsonObject object) {
-//        super.update(object);
-//
-//        getCalendar().map(c -> (Scheduler) c).ifPresent(calendar -> {
-//
-//            Optional.<JsonValue>ofNullable(object.get("oldResource"))
-//                    .filter(o -> o instanceof JsonString)
-//                    .map(JsonValue::asString)
-//                    .flatMap(calendar::getResourceById)
-//                    .map(Collections::singleton)
-//                    .ifPresent(this::unassignResources);
-//
-//            Optional.<JsonValue>ofNullable(object.get("newResource"))
-//                    .filter(o -> o instanceof JsonString)
-//                    .map(JsonValue::asString)
-//                    .flatMap(calendar::getResourceById)
-//                    .map(Collections::singleton)
-//                    .ifPresent(this::assignResources);
-//        });
-//    }
-
     /**
      * Applies resource change information from an {@link EntryDroppedSchedulerEvent}. This method
      * exists for backward compatibility (normaly update did this). Might be moved to the event in future.
@@ -282,21 +230,7 @@ public class ResourceEntry extends Entry {
      */
     @Deprecated
     public void updateResourcesFromEvent(JsonObject eventData) {
-        this.getCalendar().map(c -> (Scheduler) c).ifPresent(calendar -> {
-            Optional.<JsonValue>ofNullable(eventData.get("oldResource"))
-                    .filter(o -> o instanceof JsonString)
-                    .map(JsonValue::asString)
-                    .flatMap(calendar::getResourceById)
-                    .map(Collections::singleton)
-                    .ifPresent(this::unassignResources);
-
-            Optional.<JsonValue>ofNullable(eventData.get("newResource"))
-                    .filter(o -> o instanceof JsonString)
-                    .map(JsonValue::asString)
-                    .flatMap(calendar::getResourceById)
-                    .map(Collections::singleton)
-                    .ifPresent(this::assignResources);
-        });
+        EntryDroppedSchedulerEvent.updateResourcesFromEventResourceDelta(this, eventData);
     }
 
     public static class ResourceEntryKey extends EntryKey {
@@ -316,7 +250,7 @@ public class ResourceEntry extends Entry {
         public static final Key RESOURCES = Key.builder()
                 .name("resourceIds")
                 .allowedType(Set.class)
-                .updateFromClientAllowed(false)
+                .updateFromClientAllowed(true)
                 .collectableItemConverter(item -> JsonUtils.toJsonValue(((Resource) item).getId()))
                 .build();
     }

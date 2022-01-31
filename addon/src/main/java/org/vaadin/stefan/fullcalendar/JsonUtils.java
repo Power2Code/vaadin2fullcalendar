@@ -77,7 +77,7 @@ public final class JsonUtils {
             JsonArray array = Json.createArray();
             int i = 0;
             while (iterator.hasNext()) {
-                array.set(i++, toJsonValue(iterator.next()));
+                array.set(i++, toJsonValue(iterator.next(), customConverter));
             }
             return array;
         }
@@ -86,21 +86,21 @@ public final class JsonUtils {
             Map<String, Object> map = (Map<String, Object>) value;
             JsonObject jsonObject = Json.createObject();
             for (Map.Entry<String, Object> prop : map.entrySet()) {
-                jsonObject.put(prop.getKey(), JsonUtils.toJsonValue(prop.getValue()));
+                jsonObject.put(prop.getKey(), toJsonValue(prop.getValue(), customConverter));
             }
             return jsonObject;
         }
 
         if (value instanceof Object[]) {
-            return toJsonValue(Arrays.asList((Object[]) value).iterator());
+            return toJsonValue(Arrays.asList((Object[]) value).iterator(), customConverter);
         }
 
         if (value instanceof Iterable<?>) {
-            return toJsonValue(((Iterable<?>) value).iterator());
+            return toJsonValue(((Iterable<?>) value).iterator(), customConverter);
         }
 
         if (value instanceof Stream<?>) {
-            return toJsonValue(((Stream<?>) value).iterator());
+            return toJsonValue(((Stream<?>) value).iterator(), customConverter);
         }
 
         return customConverter != null ? customConverter.apply(value) : Json.create(String.valueOf(value));

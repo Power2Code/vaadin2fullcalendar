@@ -52,6 +52,12 @@ public class EntryDroppedSchedulerEvent extends EntryTimeChangedEvent {
         ResourceEntry entry = (ResourceEntry) super.applyChangesOnEntry();
         JsonObject object = getJsonObject();
 
+        updateResourcesFromEventResourceDelta(entry, object);
+
+        return entry;
+    }
+
+    public static void updateResourcesFromEventResourceDelta(ResourceEntry entry, JsonObject object) {
         entry.getCalendar().map(c -> (Scheduler) c).ifPresent(calendar -> {
             Optional.<JsonValue>ofNullable(object.get("oldResource"))
                     .filter(o -> o instanceof JsonString)
@@ -67,8 +73,6 @@ public class EntryDroppedSchedulerEvent extends EntryTimeChangedEvent {
                     .map(Collections::singleton)
                     .ifPresent(entry::assignResources);
         });
-
-        return entry;
     }
 
     /**

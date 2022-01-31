@@ -214,10 +214,9 @@ public class JsonUtilsTest {
         object.put("date", now.toString());
 
         Entry entry = new Entry();
-        TestUtils.updateDateTime(object, "date", entry::setStart, Timezone.UTC);
+        TestUtils.updateDateTime(object, "date", entry::setStartUTC, Timezone.getSystem());
 
         Assertions.assertEquals(now, entry.getStart());
-
     }
 
     @Test
@@ -228,7 +227,7 @@ public class JsonUtilsTest {
         object.put("date", now.toString());
 
         Entry entry = new Entry();
-        TestUtils.updateDateTime(object, "date", entry::setStart, Timezone.UTC);
+        TestUtils.updateDateTime(object, "date", entry::setStartUTC, Timezone.getSystem());
 
         Assertions.assertEquals(now.atStartOfDay(), entry.getStart());
     }
