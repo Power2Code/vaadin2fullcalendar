@@ -1826,6 +1826,7 @@ export class FullCalendar extends PolymerElement {
                             // start must not be null
                             let start = this._toUpdateDate("start", obj, eventToUpdate, false, allDay);
                             let end = this._toUpdateDate("end", obj, eventToUpdate, true, allDay);
+
                             eventToUpdate.setDates(start, end, {allDay});
                         }
 
@@ -1851,7 +1852,17 @@ export class FullCalendar extends PolymerElement {
             date = eventToUpdate[key];
         }
 
-        return date != null ? this.getCalendar().formatIso(date, allDay) : null;
+        if (date == null) {
+            return null;
+        }
+
+        let formatted = this.getCalendar().formatIso(date, allDay); //somehow not working with the date returned from eventToUpdate
+
+        if (allDay) {
+            return formatted.split("T")[0];
+        }
+
+        return formatted;
     }
 
     _isResourceRelated(obj, eventToUpdate) {
