@@ -80,7 +80,7 @@ public class EntryManager {
         calendar.addEntry(entry);
     }
 	
-	public static void createTimedEntry(FullCalendar calendar, String title, LocalDateTime start, int minutes, String color, Resource... resources) {
+	public static ResourceEntry createTimedEntry(FullCalendar calendar, String title, LocalDateTime start, int minutes, String color, Resource... resources) {
         ResourceEntry entry = new ResourceEntry();
         setValues(calendar, entry, title, start, minutes, ChronoUnit.MINUTES, color);
         if (resources != null && resources.length > 0) {
@@ -88,6 +88,7 @@ public class EntryManager {
         }
         entry.setResourceEditable(true);
         calendar.addEntry(entry);
+        return entry;
     }
     
     public static void createTimedEntry(FullCalendar calendar, String title, LocalDateTime start, int minutes, String color, HashMap<String, Object> extendedProps, Resource... resources) {

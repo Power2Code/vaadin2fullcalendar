@@ -1022,6 +1022,29 @@ public abstract class JsonItem<ID_TYPE> {
         return newArray;
     }
 
+    /**
+     * Manually marks the given keys as "changed" without changing the value itself. This should be used,
+     * if a property itself does not change, but is related to another property, that has changed.
+     * @param keys keys to be marked as changed
+     */
+    public void markAsChangedProperty(Key... keys) {
+        changedProperties.addAll(Arrays.asList(keys));
+    }
+
+    /**
+     * Manually marks the given keys, where {@link #has(Key)} returns true, as "changed" without changing the value
+     * itself. This should be used, if a property itself does not change, but is related to another property, that has changed.
+     * @param keys keys to be marked as changed
+     */
+
+    public void markAsChangedPropertyWhenDefined(Key... keys) {
+        for (Key key : keys) {
+            if (has(key)) {
+                changedProperties.add(key);
+            }
+        }
+    }
+
 
     /**
      * @param <SERVER_TYPE>

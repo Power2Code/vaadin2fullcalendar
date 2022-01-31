@@ -213,12 +213,15 @@ public class ResourceEntry extends Entry {
 
     @Override
     protected void writeJsonOnUpdate(JsonObject jsonObject) {
-        super.writeJsonOnUpdate(jsonObject);
 
-        if (getColor() == null && hasResources()) {
-            jsonObject.put("_hardReset", true);  // currently needed to make sure, that the color is
-            // set correctly. Might change in future, if not performant
-        }
+//        if (getColor() == null && hasResources()) {
+//            jsonObject.put("_hardReset", true);  // currently needed to make sure, that the color is
+//            // set correctly. Might change in future, if not performant
+//            super.writeJsonOnAdd(jsonObject);
+//        } else {
+            super.writeJsonOnUpdate(jsonObject);
+//
+//        }
     }
 
     /**

@@ -1793,8 +1793,7 @@ export class FullCalendar extends PolymerElement {
                     // Therefore this if will lead to a lot of "reset event", due to the fact, that resource editable
                     // etc. might be set often.
 
-                    if (obj['_hardReset'] === true || this._isServerSideRecurring(obj)
-                        || this._isClientSideRecurring(eventToUpdate) || this._isResourceRelated(obj, eventToUpdate)) {
+                    if (obj['_hardReset'] === true || this._isServerSideRecurring(obj) || this._isClientSideRecurring(eventToUpdate) || this._isResourceRelated(obj, eventToUpdate)) {
                         eventToUpdate.remove();
                         this.addEvents([obj]);
                     } else {
@@ -1820,20 +1819,39 @@ export class FullCalendar extends PolymerElement {
                         }
 
                         // handle time changes
-                        if (obj["start"] || obj["end"] || obj.hasOwnProperty("allDay")) {
-                            let start = obj['start'] ? calendar.formatIso(obj['start'], obj['allDay']) : null;
-                            let end = obj['end'] ? calendar.formatIso(obj['end'], obj['allDay']) : null;
-                            eventToUpdate.setDates(start, end, {allDay: obj['allDay']});
+                        if (obj.start || obj.end || obj.hasOwnProperty("allDay")) {
+
+                            let allDay = obj.hasOwnProperty("allDay") ? obj.allDay : eventToUpdate.allDay;
+
+                            // start must not be null
+                            let start = this._toUpdateDate("start", obj, eventToUpdate, false, allDay);
+                            let end = this._toUpdateDate("end", obj, eventToUpdate, true, allDay);
+                            eventToUpdate.setDates(start, end, {allDay});
                         }
 
                         // setting all day is not working 100%, we workaround it here
-                        if (obj['allDay']) {
+                        if (obj.hasOwnProperty("allDay") && !obj.allDay) {
                             eventToUpdate.moveEnd();
                         }
                     }
                 }
             }
         });
+    }
+
+    _toUpdateDate(key, obj, eventToUpdate, canBeNull, allDay) {
+        let date = null;
+        if (obj.hasOwnProperty(key)) {
+            if(!canBeNull && obj[key] == null) {
+                console.error(`${key} must not be null (obj: ${obj.id})`);
+            }
+
+            date = obj[key];
+        } else {
+            date = eventToUpdate[key];
+        }
+
+        return date != null ? this.getCalendar().formatIso(date, allDay) : null;
     }
 
     _isResourceRelated(obj, eventToUpdate) {

@@ -334,18 +334,19 @@ public class FullDemo extends VerticalLayout {
         computerRoom2.addChildren(computerRoom2Children);
         ((Scheduler) calendar).addResources(computerRoom2Children);
 
-        EntryManager.createTimedEntry(calendar, "Kickoff meeting with customer #1", now.withDayOfMonth(3).atTime(10, 0), 120, null, meetingRoomBlue, meetingRoomGreen, meetingRoomRed);
-        EntryManager.createTimedBackgroundEntry(calendar, now.withDayOfMonth(3).atTime(10, 0), 120, null, meetingRoomBlue, meetingRoomGreen, meetingRoomRed);
-        
+        ResourceEntry entry = EntryManager.createTimedEntry(calendar, "Kickoff meeting with customer #1", now.withDayOfMonth(3).atTime(10, 0), 120, null, meetingRoomBlue, meetingRoomGreen, meetingRoomRed);
+        System.out.println(entry.getStartUTC() + " / " + entry.getStart(entry.getEndTimezoneClient()) + " / " + entry.getStart(entry.getStartTimezoneClient()));
+                EntryManager.createTimedBackgroundEntry(calendar, now.withDayOfMonth(3).atTime(10, 0), 120, null, meetingRoomBlue, meetingRoomGreen, meetingRoomRed);
+
         EntryManager.createTimedEntry(calendar, "Kickoff meeting with customer #7", now.withDayOfMonth(3).atTime(10, 0), 120, null, meetingRoomOrange);
         EntryManager.createTimedEntry(calendar, "Kickoff meeting with customer #2", now.withDayOfMonth(7).atTime(11, 30), 120, "mediumseagreen", meetingRoomRed);
-        
+
         HashMap<String, Object> extendedProps = new HashMap<String, Object>();
         HashMap<String, Object> cursors = new HashMap<String, Object>();
         cursors.put("enabled", "pointer");
         cursors.put("disabled", "not-allowed");
         extendedProps.put("cursors", cursors);
-        
+
         EntryManager.createTimedEntry(calendar, "Kickoff meeting with customer #3", now.withDayOfMonth(12).atTime(9, 0), 120, "mediumseagreen", extendedProps, meetingRoomGreen);
         EntryManager.createTimedEntry(calendar, "Kickoff meeting with customer #4", now.withDayOfMonth(13).atTime(10, 0), 120, "mediumseagreen", meetingRoomGreen);
         EntryManager.createTimedEntry(calendar, "Kickoff meeting with customer #5", now.withDayOfMonth(17).atTime(11, 30), 120, "mediumseagreen", meetingRoomBlue);

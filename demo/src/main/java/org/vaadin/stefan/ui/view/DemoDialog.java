@@ -104,6 +104,11 @@ public class DemoDialog extends Dialog {
 
         Button buttonSave = new Button("Save", e -> {
             if (binder.validate().isOk()) {
+                // to prevent accidentally "disappearing" days
+                if (dialogEntry.isAllDay() && dialogEntry.getStart().toLocalDate().equals(dialogEntry.getEnd().toLocalDate())) {
+                    dialogEntry.setEnd(dialogEntry.getEnd().plusDays(1));
+                }
+
                 if (newInstance) {
                     calendar.addEntry(dialogEntry.updateEntry());
                 } else {

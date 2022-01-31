@@ -35,6 +35,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.vaadin.stefan.fullcalendar.Entry.*;
+
 /**
  * Flow implementation for the FullCalendar.
  * <p>
@@ -1028,7 +1030,10 @@ public class FullCalendar extends Component implements HasStyle, HasSize {
         Timezone oldTimezone = getTimezoneClient();
         if (!timezone.equals(oldTimezone)) {
         	setOption(Option.TIMEZONE, timezone.getClientSideValue(), timezone);
-//            updateEntries(getEntries()); // is this really necessary?
+            getEntries().forEach(entry -> {
+                entry.markAsChangedPropertyWhenDefined(EntryKey.START, EntryKey.END, EntryKey.RECURRING_START_DATE, EntryKey.RECURRING_END_DATE);
+            });
+            updateEntries(getEntries()); // is this really necessary?
         }
     }
 
