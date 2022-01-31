@@ -27,6 +27,8 @@ public abstract class JsonItem<ID_TYPE> {
     @Setter
     private boolean knownToTheClient;
 
+    private static final Key _HARD_RESET = Key.builder().name("_hardReset").build();
+
     private final Map<Key, Object> properties = new HashMap<>();
     private final Set<Key> changedProperties = new HashSet<>();
 
@@ -328,6 +330,10 @@ public abstract class JsonItem<ID_TYPE> {
         return knownToTheClient;
     }
 
+    public boolean isMarkedAsChangedProperty(Key key) {
+        return changedProperties.contains(key);
+    }
+
     /**
      * Sets the value of the property identified by the given key. Can be null to clear the value.
      * <p/>
@@ -478,6 +484,10 @@ public abstract class JsonItem<ID_TYPE> {
 
     protected void writeIdToJson(JsonObject jsonObject) {
         writeValueToJson(jsonObject, getIdKey());
+    }
+
+    protected void writeHardResetToJson(JsonObject jsonObject) {
+        writeRawValueToJson(jsonObject, _HARD_RESET, JsonUtils.toJsonValue(true));
     }
 
     /**

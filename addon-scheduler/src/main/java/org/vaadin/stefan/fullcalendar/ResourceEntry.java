@@ -213,15 +213,19 @@ public class ResourceEntry extends Entry {
 
     @Override
     protected void writeJsonOnUpdate(JsonObject jsonObject) {
-
-//        if (getColor() == null && hasResources()) {
-//            jsonObject.put("_hardReset", true);  // currently needed to make sure, that the color is
-//            // set correctly. Might change in future, if not performant
-//            super.writeJsonOnAdd(jsonObject);
-//        } else {
+        // Current issues with built in properties (therefore the special handlings of recurring and resources)
+        // - https://github.com/fullcalendar/fullcalendar/issues/4393
+        // - https://github.com/fullcalendar/fullcalendar/issues/5166
+        // - https://github.com/fullcalendar/fullcalendar/issues/5262
+        // Therefore this if will lead to a lot of "reset event", due to the fact, that resource editable
+        // etc. might be set often.
+        if (getColor() == null && hasResources() || isMarkedAsChangedProperty(ResourceEntryKey.RESOURCES) || isMarkedAsChangedProperty(ResourceEntryKey.RESOURCE_EDITABLE)) {
+            // set correctly. Might change in future, if not performant
+            super.writeJsonOnAdd(jsonObject);
+            writeHardResetToJson(jsonObject);
+        } else {
             super.writeJsonOnUpdate(jsonObject);
-//
-//        }
+        }
     }
 
     /**

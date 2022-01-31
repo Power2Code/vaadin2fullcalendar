@@ -18,6 +18,7 @@ package org.vaadin.stefan.fullcalendar;
 
 import com.vaadin.flow.function.SerializableFunction;
 import elemental.json.JsonNull;
+import elemental.json.JsonObject;
 import elemental.json.JsonString;
 import elemental.json.JsonValue;
 import lombok.AccessLevel;
@@ -89,6 +90,22 @@ public class Entry extends JsonItem<String> {
         return Optional.ofNullable(calendar);
     }
 
+    @Override
+    protected void writeJsonOnUpdate(JsonObject jsonObject) {
+        if (isRecurring() || isMarkedAsChangedProperty(EntryKey.RECURRING_DAYS_OF_WEEKS)) {
+            // Current issues with built in properties (therefore the special handlings of recurring and resources)
+            // - https://github.com/fullcalendar/fullcalendar/issues/4393
+            // - https://github.com/fullcalendar/fullcalendar/issues/5166
+            // - https://github.com/fullcalendar/fullcalendar/issues/5262
+            // Therefore this if will lead to a lot of "reset event", due to the fact, that resource editable
+            // etc. might be set often.
+
+            super.writeJsonOnAdd(jsonObject);
+            writeHardResetToJson(jsonObject);
+        } else {
+            super.writeJsonOnUpdate(jsonObject);
+        }
+    }
 
     /**
      * Returns the start of the entry as local date time based on the timezone returned by {@link #getStartTimezoneServer()}.

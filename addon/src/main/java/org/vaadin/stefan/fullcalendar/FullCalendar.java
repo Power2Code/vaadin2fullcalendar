@@ -1030,10 +1030,9 @@ public class FullCalendar extends Component implements HasStyle, HasSize {
         Timezone oldTimezone = getTimezoneClient();
         if (!timezone.equals(oldTimezone)) {
         	setOption(Option.TIMEZONE, timezone.getClientSideValue(), timezone);
-            getEntries().forEach(entry -> {
-                entry.markAsChangedPropertyWhenDefined(EntryKey.START, EntryKey.END, EntryKey.RECURRING_START_DATE, EntryKey.RECURRING_END_DATE);
-            });
-            updateEntries(getEntries()); // is this really necessary?
+            getEntries().forEach(entry ->
+                    entry.markAsChangedPropertyWhenDefined(EntryKey.START, EntryKey.END, EntryKey.RECURRING_START_DATE, EntryKey.RECURRING_END_DATE));
+            updateEntries(getEntries());
         }
     }
 
