@@ -1793,7 +1793,7 @@ export class FullCalendar extends PolymerElement {
                     // Therefore this if will lead to a lot of "reset event", due to the fact, that resource editable
                     // etc. might be set often.
 
-                    if (obj['_hardReset'] === true || this._isServerSideRecurring(obj) || this._isClientSideRecurring(eventToUpdate) || this._isResourceRelated(obj, eventToUpdate)) {
+                    if (obj['_hardReset'] === true) {
                         eventToUpdate.remove();
                         this.addEvents([obj]);
                     } else {
