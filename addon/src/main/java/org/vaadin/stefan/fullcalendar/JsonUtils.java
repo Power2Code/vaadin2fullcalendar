@@ -296,7 +296,9 @@ public final class JsonUtils {
      * @param key    json property key
      * @param setter setter to apply value
      * @throws NullPointerException when null is passed for not null parameters
+     * @deprecated not maintained anymore, will be removed in one of the next versions
      */
+    @Deprecated
     public static void updateString(@NotNull JsonObject object, @NotNull String key, @NotNull Consumer<String> setter) {
         Objects.requireNonNull(object, "JsonObject");
         Objects.requireNonNull(key, "key");
@@ -313,7 +315,9 @@ public final class JsonUtils {
      * @param key    json property key
      * @param setter setter to apply value
      * @throws NullPointerException when null is passed for not null parameters
+     * @deprecated not maintained anymore, will be removed in one of the next versions
      */
+    @Deprecated
     public static void updateBoolean(@NotNull JsonObject object, @NotNull String key, @NotNull Consumer<Boolean> setter) {
         Objects.requireNonNull(object, "JsonObject");
         Objects.requireNonNull(key, "key");
@@ -324,16 +328,16 @@ public final class JsonUtils {
     }
 
     /**
-     * Reads the json property by key and tries to apply it as a temporal. Might use the timezone and interprets
-     * it as the source date timezone, if conversion to UTC is needed. This means, if the given string is for instance
-     * a CET date, the given timezone should be CET.
+     * Reads the json property by key and tries to apply it as a temporal. Might use the timezone, if conversion to UTC is needed.
      *
      * @param object   json object
      * @param key      json property key
      * @param setter   setter to apply value
-     * @param timezone source timezone
+     * @param timezone timezone
      * @throws NullPointerException when null is passed for not null parameters
+     * @deprecated not maintained anymore, will be removed in one of the next versions
      */
+    @Deprecated
     public static void updateDateTime(@NotNull JsonObject object, @NotNull String key, @NotNull Consumer<Instant> setter, @NotNull Timezone timezone) {
         Objects.requireNonNull(object, "JsonObject");
         Objects.requireNonNull(key, "key");

@@ -16,9 +16,9 @@
  */
 package org.vaadin.stefan.fullcalendar;
 
-import elemental.json.*;
-import lombok.Getter;
-import lombok.Setter;
+import elemental.json.JsonObject;
+import elemental.json.JsonString;
+import elemental.json.JsonValue;
 
 import javax.validation.constraints.NotNull;
 import java.util.*;
@@ -26,24 +26,16 @@ import java.util.*;
 /**
  * Represents an entry that can be connected with a resource. Needed for timeline views.
  */
-@Getter
-@Setter
 public class ResourceEntry extends Entry {
 
-    private Set<Resource> resources;
-
-    /**
-     * Defines, if the user can move entries between resources (by using drag and drop). This value
-     * is passed to the client side and interpreted there, but can also be used for server side checks.
-     * <br><br>
-     * This value has no impact on the resource API of this class.
-     */
-    private boolean resourceEditable;
+    private static final Set<Key> KEYS = Key.readAndRegisterKeysAsUnmodifiable(ResourceEntryKey.class);
 
     /**
      * Creates a new entry with a generated id.
      */
     public ResourceEntry() {
+        super();
+        setResourceEditable(true);
     }
 
     /**
@@ -56,6 +48,12 @@ public class ResourceEntry extends Entry {
      */
     public ResourceEntry(String id) {
         super(id);
+        setResourceEditable(true);
+    }
+
+    @Override
+    public Set<Key> getKeys() {
+        return KEYS;
     }
 
     /**
@@ -70,6 +68,27 @@ public class ResourceEntry extends Entry {
             throw new IllegalArgumentException("ResourceEntries must be added to a FullCalendar that implements Scheduler");
         }
         super.setCalendar(calendar);
+    }
+
+    /**
+     * Indicates, if the user can move entries between resources (by using drag and drop). This value
+     * is passed to the client side and interpreted there, but can also be used for server side checks.
+     * <br><br>
+     * This value has no impact on the resource API of this class.
+     *
+     */
+    public boolean isResourceEditable() {
+        return getBoolean(ResourceEntryKey.RESOURCE_EDITABLE, true);
+    }
+
+    /**
+     * Defines, if the user can move entries between resources (by using drag and drop). This value
+     * is passed to the client side and interpreted there, but can also be used for server side checks.
+     * <br><br>
+     * This value has no impact on the resource API of this class.
+     */
+    public void setResourceEditable(boolean resourceEditable) {
+        set(ResourceEntryKey.RESOURCE_EDITABLE, resourceEditable);
     }
 
     /**
@@ -103,11 +122,7 @@ public class ResourceEntry extends Entry {
      * @return entry's resources
      */
     public Set<Resource> getResources() {
-        if (resources == null) {
-            resources = new LinkedHashSet<>();
-        }
-
-        return resources;
+        return getOrInit(ResourceEntryKey.RESOURCES, entry -> new LinkedHashSet<>());
     }
 
     /**
@@ -120,12 +135,12 @@ public class ResourceEntry extends Entry {
     }
 
     /**
-     * Returns, if the entry has any ressources assigned.
+     * Returns, if the entry has any resources assigned.
      *
      * @return has resources
      */
     public boolean hasResources() {
-        return !getResourcesOrEmpty().isEmpty();
+        return getResourcesOrEmpty().isEmpty();
     }
 
     /**
@@ -195,57 +210,114 @@ public class ResourceEntry extends Entry {
      * Unassigns all resources from this entry.
      */
     public void unassignAllResources() {
-        if (this.resources != null) {
-            this.resources.clear();
-            this.resources = null;
+//        if (hasResources()) {
+//            getResources().clear();
+            remove(ResourceEntryKey.RESOURCES);
+//        }
+    }
+
+//    @Override
+//    protected JsonObject toJson() {
+//        JsonObject jsonObject = super.toJson();
+//
+//        if (resources != null) {
+//            JsonArray array = Json.createArray();
+//            int i = 0;
+//            for (Resource r : resources) {
+//                array.set(i++, r.getId());
+//            }
+//
+//            jsonObject.put("resourceIds", array);
+//
+//            if (getColor() == null && !resources.isEmpty()) {
+//                jsonObject.put("_hardReset", true);  // currently needed to make sure, that the color is
+//                // set correctly. Might change in future, if not performant
+//            }
+//        }
+//
+//
+//        jsonObject.put("resourceEditable", isResourceEditable());
+//
+//        return jsonObject;
+//    }
+
+    @Override
+    protected void writeJsonOnUpdate(JsonObject jsonObject) {
+        super.writeJsonOnUpdate(jsonObject);
+
+        if (getColor() == null && hasResources()) {
+            jsonObject.put("_hardReset", true);  // currently needed to make sure, that the color is
+            // set correctly. Might change in future, if not performant
         }
     }
 
-    @Override
-    protected JsonObject toJson() {
-        JsonObject jsonObject = super.toJson();
+    //    @Override
+//    protected void update(JsonObject object) {
+//        super.update(object);
+//
+//        getCalendar().map(c -> (Scheduler) c).ifPresent(calendar -> {
+//
+//            Optional.<JsonValue>ofNullable(object.get("oldResource"))
+//                    .filter(o -> o instanceof JsonString)
+//                    .map(JsonValue::asString)
+//                    .flatMap(calendar::getResourceById)
+//                    .map(Collections::singleton)
+//                    .ifPresent(this::unassignResources);
+//
+//            Optional.<JsonValue>ofNullable(object.get("newResource"))
+//                    .filter(o -> o instanceof JsonString)
+//                    .map(JsonValue::asString)
+//                    .flatMap(calendar::getResourceById)
+//                    .map(Collections::singleton)
+//                    .ifPresent(this::assignResources);
+//        });
+//    }
 
-        if (resources != null) {
-            JsonArray array = Json.createArray();
-            int i = 0;
-            for (Resource r : resources) {
-                array.set(i++, r.getId());
-            }
-
-            jsonObject.put("resourceIds", array);
-
-            if (getColor() == null && !resources.isEmpty()) {
-                jsonObject.put("_hardReset", true);  // currently needed to make sure, that the color is
-                // set correctly. Might change in future, if not performant
-            }
-        }
-
-
-        jsonObject.put("resourceEditable", isResourceEditable());
-
-        return jsonObject;
-    }
-
-    @Override
-    protected void update(JsonObject object) {
-        super.update(object);
-
-        getCalendar().map(c -> (Scheduler) c).ifPresent(calendar -> {
-            Optional<Set<Resource>> oldResource = Optional.<JsonValue>ofNullable(object.get("oldResource"))
+    /**
+     * Applies resource change information from an {@link EntryDroppedSchedulerEvent}. This method
+     * exists for backward compatibility (normaly update did this). Might be moved to the event in future.
+     *
+     * @param eventData event data
+     * @deprecated try to not use this method (except for inside the {@link EntryDroppedSchedulerEvent}).
+     */
+    @Deprecated
+    public void updateResourcesFromEvent(JsonObject eventData) {
+        this.getCalendar().map(c -> (Scheduler) c).ifPresent(calendar -> {
+            Optional.<JsonValue>ofNullable(eventData.get("oldResource"))
                     .filter(o -> o instanceof JsonString)
                     .map(JsonValue::asString)
                     .flatMap(calendar::getResourceById)
-                    .map(Collections::singleton);
-            oldResource
+                    .map(Collections::singleton)
                     .ifPresent(this::unassignResources);
 
-            Optional.<JsonValue>ofNullable(object.get("newResource"))
+            Optional.<JsonValue>ofNullable(eventData.get("newResource"))
                     .filter(o -> o instanceof JsonString)
                     .map(JsonValue::asString)
                     .flatMap(calendar::getResourceById)
                     .map(Collections::singleton)
                     .ifPresent(this::assignResources);
-
         });
+    }
+
+    public static class ResourceEntryKey extends EntryKey {
+        /**
+         * Defines, if the user can move entries between resources (by using drag and drop). This value
+         * is passed to the client side and interpreted there, but can also be used for server side checks.
+         * <br><br>
+         * This value has no impact on the resource API of this class.
+         */
+        public static final Key RESOURCE_EDITABLE = Key.builder()
+                .name("resourceEditable")
+                .defaultValue(true)
+                .updateFromClientAllowed(false)
+                .allowedType(Boolean.class)
+                .build();
+
+        public static final Key RESOURCES = Key.builder()
+                .name("resourceIds")
+                .allowedType(Set.class)
+                .updateFromClientAllowed(false)
+                .collectableItemConverter(item -> JsonUtils.toJsonValue(((Resource) item).getId()))
+                .build();
     }
 }

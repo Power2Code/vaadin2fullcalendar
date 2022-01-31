@@ -189,7 +189,7 @@ public class JsonUtilsTest {
         object.put("title", "test");
 
         Entry entry = new Entry();
-        JsonUtils.updateString(object, "title", entry::setTitle);
+        TestUtils.updateString(object, "title", entry::setTitle);
 
         Assertions.assertEquals("test", entry.getTitle() );
     }
@@ -200,12 +200,11 @@ public class JsonUtilsTest {
         object.put("allDay", true);
 
         Entry entry = new Entry();
-        JsonUtils.updateBoolean(object, "allDay", entry::setAllDay);
+        TestUtils.updateBoolean(object, "allDay", entry::setAllDay);
 
         Assertions.assertEquals(true, entry.isAllDay() );
 
     }
-
 
     @Test
     void testLocalDatePropertyUpdate() {
@@ -215,9 +214,10 @@ public class JsonUtilsTest {
         object.put("date", now.toString());
 
         Entry entry = new Entry();
-        JsonUtils.updateDateTime(object, "date", entry::setStartUTC, Timezone.getSystem());
+        TestUtils.updateDateTime(object, "date", entry::setStart, Timezone.UTC);
 
         Assertions.assertEquals(now, entry.getStart());
+
     }
 
     @Test
@@ -228,7 +228,7 @@ public class JsonUtilsTest {
         object.put("date", now.toString());
 
         Entry entry = new Entry();
-        JsonUtils.updateDateTime(object, "date", entry::setStartUTC, Timezone.getSystem());
+        TestUtils.updateDateTime(object, "date", entry::setStart, Timezone.UTC);
 
         Assertions.assertEquals(now.atStartOfDay(), entry.getStart());
     }
