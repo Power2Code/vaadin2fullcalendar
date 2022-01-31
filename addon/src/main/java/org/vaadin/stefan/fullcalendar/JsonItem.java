@@ -55,9 +55,9 @@ public abstract class JsonItem<ID_TYPE> {
      * <p></p>
      * For keys that define their own default value, this method will never return the given defaultValue argument.
      *
-     * @param key property key
+     * @param key          property key
      * @param defaultValue default value to return if no value has been found
-     * @param <T> return type
+     * @param <T>          return type
      * @return property value (can be null)
      */
     public <T> T get(Key key, T defaultValue) {
@@ -71,9 +71,9 @@ public abstract class JsonItem<ID_TYPE> {
      * <p></p>
      * For keys that define their own default value, this method will never return the given defaultValue argument.
      *
-     * @param key property key
+     * @param key                  property key
      * @param defaultValueCallback default value to return if no value has been found
-     * @param <T> return type
+     * @param <T>                  return type
      * @return property value (can be null)
      */
     public <T> T getOrInit(Key key, SerializableFunction<JsonItem, T> defaultValueCallback) {
@@ -132,7 +132,7 @@ public abstract class JsonItem<ID_TYPE> {
      * Returns the value of the property identified by the given key as a native boolean. Returns
      * the given default value, if the value is null.
      *
-     * @param key property key
+     * @param key          property key
      * @param defaultValue default value to return if no value has been found
      * @return property value (can be null)
      * @throws ClassCastException property type is not Boolean
@@ -159,7 +159,7 @@ public abstract class JsonItem<ID_TYPE> {
      * the default value, if the value is null.
      * Supports any {@link Number} type (with their respective conversion rules).
      *
-     * @param key property key
+     * @param key          property key
      * @param defaultValue default value to return if no value has been found
      * @return property value (can be null)
      * @throws ClassCastException property type is not Number
@@ -185,7 +185,7 @@ public abstract class JsonItem<ID_TYPE> {
      * Returns the value of the property identified by the given key as a native double. Returns
      * the default value, if the value is null. Supports any {@link Number} type (with their respective conversion rules).
      *
-     * @param key property key
+     * @param key          property key
      * @param defaultValue default value to return if no value has been found
      * @return property value (can be null)
      * @throws ClassCastException property type is not Number
@@ -211,7 +211,7 @@ public abstract class JsonItem<ID_TYPE> {
      * Returns the value of the property identified by the given key as a native long. Returns
      * the default value, if the value is null. Supports any {@link Number} type (with their respective conversion rules).
      *
-     * @param key property key
+     * @param key          property key
      * @param defaultValue default value to return if no value has been found
      * @return property value (can be null)
      * @throws ClassCastException property type is not Number
@@ -259,7 +259,8 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Sets a value for the given key. Throws an exception when the value is null.
-     * @param key key
+     *
+     * @param key   key
      * @param value value
      */
     public void setNotNull(Key key, @NotNull Object value) {
@@ -270,9 +271,10 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Sets a string for the given key. Throws an exception when the string is null or empty.
-     * @see StringUtils#isEmpty(CharSequence)
-     * @param key key
+     *
+     * @param key   key
      * @param value value
+     * @see StringUtils#isEmpty(CharSequence)
      */
     public void setNotEmpty(Key key, @NotNull String value) {
         if (StringUtils.isEmpty(value)) {
@@ -283,9 +285,10 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Sets a string for the given key. Throws an exception when the string is null or blank.
-     * @see StringUtils#isBlank(CharSequence)
-     * @param key key
+     *
+     * @param key   key
      * @param value value
+     * @see StringUtils#isBlank(CharSequence)
      */
     public void setNotBlank(Key key, @NotNull String value) {
         if (StringUtils.isBlank(value)) {
@@ -295,17 +298,20 @@ public abstract class JsonItem<ID_TYPE> {
     }
 
     /**
-     * Sets the value of the property identified by the given key. Can be null to clear the value.
+     * Sets the value of the property identified by the given key, when the value differs to the current one.
+     * Can be null to clear the value.
      * <p/>
-     * When this instance has an ID, the property is also registered as "has changed".
+     * When this instance is known to the client, the property is also registered as "has changed".
      *
      * @param key   key
      * @param value value
      */
     public void set(Key key, Object value) {
-        setWithoutDirtyChange(key, value);
-        if (isToBeMarkedAsChangedProperty(key)) {
-            changedProperties.add(key);
+        if (!Objects.equals(value, get(key))) {
+            setWithoutDirtyChange(key, value);
+            if (isToBeMarkedAsChangedProperty(key)) {
+                changedProperties.add(key);
+            }
         }
     }
 
@@ -436,11 +442,13 @@ public abstract class JsonItem<ID_TYPE> {
      * to the given json object, that are needed to inform the client side.
      * <p/>
      * Calls by default {@link #writeValuesToJsonWhenChanged(JsonObject)} and also writes the id to the json object.
+     * The id is always written after the changed values have been written.
      *
      * @param jsonObject json object to fill
      */
     protected void writeJsonOnUpdate(JsonObject jsonObject) {
         writeValuesToJsonWhenChanged(jsonObject);
+        writeIdToJson(jsonObject);
     }
 
     /**
@@ -465,6 +473,11 @@ public abstract class JsonItem<ID_TYPE> {
      * @param jsonObject json object to fill
      */
     protected void writeJsonOnDelete(JsonObject jsonObject) {
+        writeIdToJson(jsonObject);
+    }
+
+    protected void writeIdToJson(JsonObject jsonObject) {
+        writeValueToJson(jsonObject, getIdKey());
     }
 
     /**
@@ -490,8 +503,8 @@ public abstract class JsonItem<ID_TYPE> {
     /**
      * Returns the set of known keys of this instance.
      *
-     * @see Key
      * @return keys
+     * @see Key
      */
     public abstract Set<Key> getKeys();
 
@@ -510,6 +523,7 @@ public abstract class JsonItem<ID_TYPE> {
     /**
      * Sets the id of this item. It is recommended to not use this method except for you know what you are doing.
      * Passing duplicates or null can and will lead to issues.
+     *
      * @param id new id
      */
     protected void setId(ID_TYPE id) {
@@ -518,6 +532,7 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Returns the ID key. Must not be null!
+     *
      * @return id key
      */
     protected abstract Key getIdKey();
@@ -825,9 +840,10 @@ public abstract class JsonItem<ID_TYPE> {
      * <p></p>
      * Be aware, that any non standard property you
      * set via "set(..., ...)" is not automatically put into this map, but this is done by the client later.
+     *
+     * @return Map
      * @see #getCustomPropertiesOrEmpty()
      * @see #getOrCreateCustomProperties()
-     * @return Map
      */
     public Map<String, Object> getCustomProperties() {
         return get(getCustomPropertiesKey());
@@ -836,6 +852,7 @@ public abstract class JsonItem<ID_TYPE> {
     /**
      * Returns the key to be used to assign custom properties. Throws an {@link UnsupportedOperationException} by
      * default. Only necessary to be overridden, when custom properties shall be usable.
+     *
      * @return custom properties key.
      */
     protected Key getCustomPropertiesKey() {
@@ -847,9 +864,10 @@ public abstract class JsonItem<ID_TYPE> {
      * <p></p>
      * Be aware, that any non standard property you
      * set via "set(..., ...)" is not automatically put into this map, but this is done by the client later.
+     *
+     * @return map
      * @see #getCustomProperties()
      * @see #getOrCreateCustomProperties()
-     * @return map
      */
     public Map<String, Object> getCustomPropertiesOrEmpty() {
         Map<String, Object> map = get(getCustomPropertiesKey());
@@ -865,9 +883,9 @@ public abstract class JsonItem<ID_TYPE> {
      * Be aware, that any non standard property you
      * set via "set(..., ...)" is not automatically put into this map, but this is done by the client later.
      *
+     * @return Map
      * @see #getCustomPropertiesOrEmpty()
      * @see #getCustomProperties()
-     * @return Map
      */
     public Map<String, Object> getOrCreateCustomProperties() {
         Map<String, Object> map = get(getCustomPropertiesKey());
@@ -881,6 +899,7 @@ public abstract class JsonItem<ID_TYPE> {
     /**
      * Sets custom properties. These will be passed as they are into the client side object as "extendedProps". Can
      * be used for custom event rendering.
+     *
      * @param customProperties custom properties
      */
     public void setCustomProperties(Map<String, Object> customProperties) {
@@ -900,6 +919,7 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Returns a custom property (or null if not defined).
+     *
      * @param key name of the custom property
      * @param <T> return type
      * @return custom property value or null
@@ -938,6 +958,7 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Creates a copy of this instance. Unset properties stay uninitialized.
+     *
      * @param <T> return type
      * @return copy
      */
@@ -950,8 +971,7 @@ public abstract class JsonItem<ID_TYPE> {
      * parameter is set to true. Otherwise they will not be initialized.
      *
      * @param initializeUnsetProperties initialize unset properties
-     * @param <T> return type
-     *
+     * @param <T>                       return type
      * @return copy
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1024,6 +1044,7 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Checks for equality by type and id.
+     *
      * @param o object to check
      * @return equals
      */
@@ -1037,6 +1058,7 @@ public abstract class JsonItem<ID_TYPE> {
 
     /**
      * Returns the hashcode of the id.
+     *
      * @return hashcode
      */
     @Override
@@ -1095,6 +1117,7 @@ public abstract class JsonItem<ID_TYPE> {
          * There is currently no version of that converter for client to server. That will instead be handled
          * by the {@link #jsonToObjectConverter}. Extend the {@link #jsonObjectToConverterTypes} to handle
          * any type you need to convert beside a normal JsonObject.
+         *
          * @see JsonUtils#isCollectable(Object)
          */
         private final SerializableFunction<Object, JsonValue> collectableItemConverter;

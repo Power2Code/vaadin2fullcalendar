@@ -412,9 +412,11 @@ public class FullCalendar extends Component implements HasStyle, HasSize {
 
             if (!entries.containsKey(id)) {
                 entry.setCalendar(this);
-                entry.setKnownToTheClient(true);
                 entries.put(id, entry);
                 array.set(array.length(), entry.toJsonOnAdd());
+
+                entry.setKnownToTheClient(true);
+                entry.clearDirtyState();
             }
         });
 
@@ -458,8 +460,10 @@ public class FullCalendar extends Component implements HasStyle, HasSize {
         iterableEntries.forEach(entry -> {
             String id = entry.getId();
             if (entries.containsKey(id)) {
-                entry.setKnownToTheClient(true);
                 array.set(array.length(), entry.toJsonOnUpdate());
+
+                entry.setKnownToTheClient(true);
+                entry.clearDirtyState();
             }
         });
 
@@ -504,9 +508,11 @@ public class FullCalendar extends Component implements HasStyle, HasSize {
 
             if (entries.containsKey(id)) {
                 entry.setCalendar(null);
-                entry.setKnownToTheClient(false);
                 entries.remove(id);
                 array.set(array.length(), entry.toJsonOnDelete());
+
+                entry.setKnownToTheClient(false);
+                entry.clearDirtyState();
             }
         });
 
@@ -519,7 +525,11 @@ public class FullCalendar extends Component implements HasStyle, HasSize {
      * Remove all entries.
      */
     public void removeAllEntries() {
-        entries.values().forEach(e -> e.setCalendar(null));
+        entries.values().forEach(e -> {
+            e.setCalendar(null);
+            e.setKnownToTheClient(false);
+            e.clearDirtyState();
+        });
         entries.clear();
         getElement().callJsFunction("removeAllEvents");
     }
